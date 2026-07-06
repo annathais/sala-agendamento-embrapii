@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sala de Reunião — Agenda</title>
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ---------- Tema claro (padrão) — paleta EMBRAPII Unidade Bioforest ---------- */
+  :root{
+    --bg: #F2F6F9;
+    --panel: #FFFFFF;
+    --panel-2: #EAF1F6;
+    --line: #D9E3EB;
+    --text: #16212C;
+    --text-dim: #57687A;
+    --text-faint: #8E9BA8;
+    --brand: #1E6FB4;       /* azul do logo */
+    --brand-dim: #B9D8EC;
+    --brand-strong: #14507F;
+    --teal: #2FBFA0;         /* verde-água do logo */
+    --free: #2E9B5D;
+    --free-bg: #E2F5E8;
+    --free-line: #BFE3CB;
+    --busy: #D1503A;
+    --busy-bg: #FBEAE6;
+    --busy-line: #EFC7BD;
+    --radius: 10px;
+    --overlay: rgba(15,25,35,0.45);
+  }
+
+  /* ---------- Tema escuro — segue o padrão do sistema/navegador ---------- */
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg: #10171F;
+      --panel: #182430;
+      --panel-2: #1E2C3A;
+      --line: #2B3B4B;
+      --text: #E9EFF4;
+      --text-dim: #93A6B6;
+      --text-faint: #5D7182;
+      --brand: #56B4EA;
+      --brand-dim: #1E4A66;
+      --brand-strong: #8FD1F2;
+      --teal: #3FD3B4;
+      --free: #56C888;
+      --free-bg: #16301F;
+      --free-line: #2C4A34;
+      --busy: #E27A64;
+      --busy-bg: #33201A;
+      --busy-line: #4E3428;
+      --overlay: rgba(4,8,12,0.65);
+    }
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding: 32px 16px 64px;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+
+  header.board{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:16px;
+    border-bottom: 2px solid var(--brand-dim);
+    padding-bottom:18px;
+    margin-bottom:28px;
+    flex-wrap:wrap;
+  }
+  .brand-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .brand-row img{
+    height:40px;
+    width:auto;
+    display:block;
+  }
+  .room-id{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:11px;
+    letter-spacing:2px;
+    color:var(--teal);
+    text-transform:uppercase;
+    margin:0 0 6px;
+  }
+  .room-name{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:28px;
+    font-weight:600;
+    margin:0;
+    letter-spacing:-0.3px;
+    color:var(--brand-strong);
+  }
+  .clock{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:28px;
+    color:var(--brand);
+    letter-spacing:1px;
+    text-align:right;
+  }
+  .clock .date{
+    display:block;
+    font-family:'Inter',sans-serif;
+    font-size:12px;
+    color:var(--text-dim);
+    font-weight:500;
+    margin-top:2px;
+    letter-spacing:0.3px;
+  }
+
+  .date-nav{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:20px;
+  }
+  .date-nav button{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text);
+    width:36px;height:36px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:16px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .date-nav button:hover{border-color:var(--brand-dim);}
+  .date-nav input[type=date]{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:8px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:14px;
+    color-scheme: light dark;
+  }
+  .date-nav .today-btn{
+    width:auto;padding:0 14px;
+    font-family:'Inter',sans-serif;
+    font-size:13px;font-weight:500;
+  }
+
+  section{margin-bottom:32px;}
+  .section-label{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:13px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin:0 0 12px;
+  }
+
+  .timeline{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(78px,1fr));
+    gap:6px;
+  }
+  .slot{
+    background:var(--free-bg);
+    border:1px solid var(--free-line);
+    border-radius:6px;
+    padding:8px 6px;
+    text-align:center;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .slot .t{
+    font-size:12px;
+    color:var(--free);
+    font-weight:500;
+  }
+  .slot.busy{
+    background:var(--busy-bg);
+    border-color:var(--busy-line);
+  }
+  .slot.busy .t{color:var(--busy);}
+
+  .legend{
+    display:flex;gap:18px;margin-top:10px;
+    font-size:12px;color:var(--text-dim);
+  }
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .dot{width:8px;height:8px;border-radius:2px;display:inline-block;}
+  .dot.free{background:var(--free);}
+  .dot.busy{background:var(--busy);}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px;
+  }
+
+  form{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  form .full{grid-column:1/-1;}
+  label{
+    display:block;
+    font-size:12px;
+    color:var(--text-dim);
+    margin-bottom:6px;
+    font-weight:500;
+  }
+  input, textarea{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:10px 12px;
+    border-radius:8px;
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+  }
+  input[type=time]{font-family:'IBM Plex Mono',monospace;}
+  input:focus, textarea:focus{outline:none;border-color:var(--brand);}
+  textarea{resize:vertical;min-height:56px;}
+
+  .submit-row{grid-column:1/-1;display:flex;align-items:center;gap:14px;margin-top:4px;}
+  button.primary{
+    background:var(--brand);
+    color:#FFFFFF;
+    border:none;
+    padding:11px 22px;
+    border-radius:8px;
+    font-weight:600;
+    font-size:14px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  button.primary:hover{background:var(--brand-strong);}
+  button.primary:disabled{background:var(--line);color:var(--text-faint);cursor:not-allowed;}
+  .msg{font-size:13px;}
+  .msg.err{color:var(--busy);}
+  .msg.ok{color:var(--free);}
+
+  .list{display:flex;flex-direction:column;gap:8px;}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-left:3px solid var(--brand);
+    border-radius:8px;
+    padding:12px 16px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+  }
+  .card.mine{border-left-color: var(--teal);}
+  .card .time{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--brand);
+    font-size:14px;
+    white-space:nowrap;
+    min-width:118px;
+  }
+  .card .who{font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px;}
+  .card .who .tag{
+    font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;
+    color:var(--teal);border:1px solid var(--teal);border-radius:4px;padding:1px 6px;
+  }
+  .card .what{font-size:12px;color:var(--text-dim);margin-top:2px;}
+  .card .body{flex:1;min-width:0;}
+  .card button.del{
+    background:none;border:1px solid var(--line);color:var(--text-faint);
+    width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;
+  }
+  .card button.del:hover{border-color:var(--busy);color:var(--busy);}
+  .card .locked{
+    font-size:11px;color:var(--text-faint);white-space:nowrap;flex-shrink:0;
+  }
+  .empty{color:var(--text-faint);font-size:14px;padding:18px 0;text-align:center;}
+
+  .footnote{
+    font-size:12px;color:var(--text-faint);text-align:center;margin-top:36px;
+  }
+
+  /* ---------- Modal de confirmação ---------- */
+  .modal-overlay{
+    position:fixed;inset:0;
+    background:var(--overlay);
+    display:none;
+    align-items:center;justify-content:center;
+    padding:20px;
+    z-index:100;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-top:3px solid var(--brand);
+    border-radius:12px;
+    max-width:400px;
+    width:100%;
+    padding:26px;
+    text-align:center;
+  }
+  .modal .icon{
+    width:48px;height:48px;border-radius:50%;
+    background:var(--free-bg);border:1px solid var(--free-line);
+    display:flex;align-items:center;justify-content:center;
+    margin:0 auto 14px;
+    font-size:24px;color:var(--free);
+  }
+  .modal.is-error .icon{
+    background:var(--busy-bg);border-color:var(--busy-line);color:var(--busy);
+  }
+  .modal h3{
+    font-family:'Space Grotesk',sans-serif;
+    margin:0 0 8px;font-size:19px;
+  }
+  .modal p{color:var(--text-dim);font-size:14px;margin:0 0 4px;line-height:1.5;}
+  .modal .details{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+    padding:12px 14px;margin:14px 0;text-align:left;font-size:13px;
+    font-family:'IBM Plex Mono',monospace;color:var(--text);
+  }
+  .modal .details div{margin:3px 0;}
+  .modal .email-note{font-size:12px;color:var(--text-faint);margin-top:10px;}
+  .modal button.primary{margin-top:16px;width:100%;}
+
+  @media (max-width:520px){
+    form{grid-template-columns:1fr;}
+    .clock{font-size:20px;}
+    .room-name{font-size:22px;}
+    .brand-row img{height:32px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="board">
+    <div class="brand-row">
+      <img src="/assets/logo.png" alt="EMBRAPII Unidade Bioforest - UFOPA">
+      <div>
+        <p class="room-id">Sala 01 · Andar Térreo</p>
+        <h1 class="room-name">Sala de Reunião</h1>
+      </div>
+    </div>
+    <div class="clock" id="clock">
+      --:--
+      <span class="date" id="clock-date">carregando...</span>
+    </div>
+  </header>
+
+  <div class="date-nav">
+    <button id="prev-day" aria-label="Dia anterior">‹</button>
+    <input type="date" id="date-picker">
+    <button id="next-day" aria-label="Próximo dia">›</button>
+    <button class="today-btn" id="today-btn">Hoje</button>
+  </div>
+
+  <section>
+    <p class="section-label">Ocupação do dia (08:00 – 19:00)</p>
+    <div class="timeline" id="timeline"></div>
+    <div class="legend">
+      <span><i class="dot free"></i>Livre</span>
+      <span><i class="dot busy"></i>Reservado</span>
+    </div>
+  </section>
+
+  <section>
+    <p class="section-label">Nova reserva</p>
+    <div class="panel">
+      <form id="booking-form">
+        <div>
+          <label for="f-name">Reservado por</label>
+          <input type="text" id="f-name" placeholder="Seu nome" required>
+        </div>
+        <div>
+          <label for="f-email">Seu email (para confirmação)</label>
+          <input type="email" id="f-email" placeholder="voce@empresa.com">
+        </div>
+        <div class="full">
+          <label for="f-purpose">Assunto</label>
+          <input type="text" id="f-purpose" placeholder="Ex.: Reunião de equipe">
+        </div>
+        <div>
+          <label for="f-start">Início</label>
+          <input type="time" id="f-start" step="900" required>
+        </div>
+        <div>
+          <label for="f-end">Término</label>
+          <input type="time" id="f-end" step="900" required>
+        </div>
+        <div class="submit-row">
+          <button type="submit" class="primary" id="submit-btn">Reservar horário</button>
+          <span class="msg" id="form-msg"></span>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section>
+    <p class="section-label">Reservas do dia — visível para todos</p>
+    <div class="list" id="reservation-list"></div>
+  </section>
+
+  <p class="footnote">Todas as reservas ficam visíveis para qualquer pessoa com acesso a esta agenda. Apenas quem criou uma reserva pode cancelá-la.</p>
+
+</div>
+
+<!-- Pop-up de confirmação -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="icon" id="modal-icon">✓</div>
+    <h3 id="modal-title">Reserva confirmada</h3>
+    <p id="modal-text"></p>
+    <div class="details" id="modal-details"></div>
+    <p class="email-note" id="modal-email-note"></p>
+    <button class="primary" id="modal-close-btn">OK</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var OPEN_HOUR = 8, CLOSE_HOUR = 19;
+  var API_BASE = '/api/reservations';
+  var TOKENS_KEY = 'sala-reuniao:my-tokens'; // guarda localmente {reservationId: manageToken}
+
+  var dateInput = document.getElementById('date-picker');
+  var timeline = document.getElementById('timeline');
+  var listEl = document.getElementById('reservation-list');
+  var form = document.getElementById('booking-form');
+  var msgEl = document.getElementById('form-msg');
+  var submitBtn = document.getElementById('submit-btn');
+
+  var modalOverlay = document.getElementById('modal-overlay');
+  var modalBox = document.getElementById('modal');
+  var modalIcon = document.getElementById('modal-icon');
+  var modalTitle = document.getElementById('modal-title');
+  var modalText = document.getElementById('modal-text');
+  var modalDetails = document.getElementById('modal-details');
+  var modalEmailNote = document.getElementById('modal-email-note');
+  var modalCloseBtn = document.getElementById('modal-close-btn');
+
+  // ---------- Chaves de cancelamento guardadas neste navegador ----------
+  function getMyTokens(){
+    try{
+      return JSON.parse(localStorage.getItem(TOKENS_KEY) || '{}');
+    }catch(e){
+      return {};
+    }
+  }
+  function saveMyToken(reservationId, token){
+    var map = getMyTokens();
+    map[reservationId] = token;
+    localStorage.setItem(TOKENS_KEY, JSON.stringify(map));
+  }
+  function forgetMyToken(reservationId){
+    var map = getMyTokens();
+    delete map[reservationId];
+    localStorage.setItem(TOKENS_KEY, JSON.stringify(map));
+  }
+
+  function pad(n){ return n < 10 ? '0'+n : ''+n; }
+  function toKeyDate(d){
+    return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+  }
+  function parseTimeToMinutes(t){
+    var parts = t.split(':');
+    return parseInt(parts[0],10)*60 + parseInt(parts[1],10);
+  }
+  function formatDateHuman(dateStr){
+    var d = new Date(dateStr+'T00:00:00');
+    return d.toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+  }
+
+  function openModal(opts){
+    modalBox.classList.toggle('is-error', !!opts.isError);
+    modalIcon.textContent = opts.isError ? '!' : '✓';
+    modalTitle.textContent = opts.title;
+    modalText.textContent = opts.text || '';
+    modalDetails.innerHTML = opts.detailsHtml || '';
+    modalDetails.style.display = opts.detailsHtml ? 'block' : 'none';
+    modalEmailNote.textContent = opts.emailNote || '';
+    modalOverlay.classList.add('show');
+  }
+  function closeModal(){
+    modalOverlay.classList.remove('show');
+  }
+  modalCloseBtn.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', function(e){
+    if(e.target === modalOverlay) closeModal();
+  });
+
+  var currentDate = toKeyDate(new Date());
+  dateInput.value = currentDate;
+
+  function updateClock(){
+    var now = new Date();
+    document.getElementById('clock').childNodes[0].nodeValue = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds())+' ';
+    document.getElementById('clock-date').textContent = now.toLocaleDateString('pt-BR',{weekday:'short', day:'2-digit', month:'short'});
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  async function loadReservations(dateStr){
+    try{
+      var res = await fetch(API_BASE + '?date=' + encodeURIComponent(dateStr));
+      if(!res.ok) return [];
+      return await res.json();
+    }catch(e){
+      return [];
+    }
+  }
+
+  async function deleteReservation(id, token){
+    var res = await fetch(API_BASE + '/' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'X-Manage-Token': token || '' },
+      body: JSON.stringify({ manageToken: token || '' })
+    });
+    var data = {};
+    try{ data = await res.json(); }catch(e){}
+    return { ok: res.ok, status: res.status, data: data };
+  }
+
+  function renderTimeline(reservations){
+    timeline.innerHTML = '';
+    for(var h = OPEN_HOUR; h < CLOSE_HOUR; h++){
+      var slotStart = h*60, slotEnd = slotStart+60;
+      var isBusy = reservations.some(function(r){
+        var rs = parseTimeToMinutes(r.start), re = parseTimeToMinutes(r.end);
+        return rs < slotEnd && re > slotStart;
+      });
+      var div = document.createElement('div');
+      div.className = 'slot' + (isBusy ? ' busy' : '');
+      var t = document.createElement('div');
+      t.className = 't';
+      t.textContent = pad(h)+':00';
+      div.appendChild(t);
+      timeline.appendChild(div);
+    }
+  }
+
+  function renderList(reservations, dateStr){
+    listEl.innerHTML = '';
+    if(reservations.length === 0){
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'Nenhuma reserva para ' + formatDateHuman(dateStr) + '.';
+      listEl.appendChild(empty);
+      return;
+    }
+    var myTokens = getMyTokens();
+
+    reservations.forEach(function(r){
+      var myToken = myTokens[r.id];
+      var isMine = !!myToken;
+
+      var card = document.createElement('div');
+      card.className = 'card' + (isMine ? ' mine' : '');
+
+      var time = document.createElement('div');
+      time.className = 'time';
+      time.textContent = r.start + ' – ' + r.end;
+
+      var body = document.createElement('div');
+      body.className = 'body';
+      var who = document.createElement('div');
+      who.className = 'who';
+      who.textContent = r.name;
+      if(isMine){
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = 'Sua reserva';
+        who.appendChild(tag);
+      }
+      var what = document.createElement('div');
+      what.className = 'what';
+      what.textContent = r.purpose || 'Sem assunto informado';
+      body.appendChild(who);
+      body.appendChild(what);
+
+      card.appendChild(time);
+      card.appendChild(body);
+
+      if(isMine){
+        // Só quem reservou vê e consegue usar o botão de cancelar
+        var del = document.createElement('button');
+        del.className = 'del';
+        del.setAttribute('aria-label','Cancelar reserva');
+        del.textContent = '×';
+        del.addEventListener('click', async function(){
+          var result = await deleteReservation(r.id, myToken);
+          if(result.ok){
+            forgetMyToken(r.id);
+            refresh();
+          } else if(result.status === 403){
+            openModal({
+              isError: true,
+              title: 'Sem permissão',
+              text: 'Apenas quem criou esta reserva pode cancelá-la.'
+            });
+          } else {
+            openModal({
+              isError: true,
+              title: 'Não foi possível cancelar',
+              text: (result.data && result.data.error) || 'Tente novamente em instantes.'
+            });
+          }
+        });
+        card.appendChild(del);
+      } else {
+        // Outras pessoas veem apenas um aviso, sem opção de apagar
+        var locked = document.createElement('span');
+        locked.className = 'locked';
+        locked.textContent = 'Somente quem reservou pode cancelar';
+        card.appendChild(locked);
+      }
+
+      listEl.appendChild(card);
+    });
+  }
+
+  async function refresh(){
+    currentDate = dateInput.value;
+    var reservations = await loadReservations(currentDate);
+    renderTimeline(reservations);
+    renderList(reservations, currentDate);
+  }
+
+  dateInput.addEventListener('change', refresh);
+
+  document.getElementById('prev-day').addEventListener('click', function(){
+    var d = new Date(dateInput.value+'T00:00:00');
+    d.setDate(d.getDate()-1);
+    dateInput.value = toKeyDate(d);
+    refresh();
+  });
+  document.getElementById('next-day').addEventListener('click', function(){
+    var d = new Date(dateInput.value+'T00:00:00');
+    d.setDate(d.getDate()+1);
+    dateInput.value = toKeyDate(d);
+    refresh();
+  });
+  document.getElementById('today-btn').addEventListener('click', function(){
+    dateInput.value = toKeyDate(new Date());
+    refresh();
+  });
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    msgEl.textContent = '';
+    msgEl.className = 'msg';
+
+    var name = document.getElementById('f-name').value.trim();
+    var email = document.getElementById('f-email').value.trim();
+    var purpose = document.getElementById('f-purpose').value.trim();
+    var start = document.getElementById('f-start').value;
+    var end = document.getElementById('f-end').value;
+
+    if(!name || !start || !end){
+      msgEl.textContent = 'Preencha nome, início e término.';
+      msgEl.className = 'msg err';
+      return;
+    }
+    var sMin = parseTimeToMinutes(start), eMin = parseTimeToMinutes(end);
+    if(eMin <= sMin){
+      msgEl.textContent = 'O horário de término deve ser depois do início.';
+      msgEl.className = 'msg err';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    try{
+      var res = await fetch(API_BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name, email: email, purpose: purpose,
+          date: currentDate, start: start, end: end
+        })
+      });
+      var data = await res.json();
+
+      if(!res.ok){
+        msgEl.textContent = data.error || 'Não foi possível salvar a reserva.';
+        msgEl.className = 'msg err';
+        openModal({
+          isError: true,
+          title: 'Não foi possível reservar',
+          text: data.error || 'Tente novamente com outro horário.'
+        });
+        return;
+      }
+
+      // Guarda a chave de cancelamento localmente — só este navegador saberá cancelar esta reserva
+      if(data.reservation && data.manageToken){
+        saveMyToken(data.reservation.id, data.manageToken);
+      }
+
+      msgEl.textContent = 'Reserva confirmada.';
+      msgEl.className = 'msg ok';
+      form.reset();
+
+      var detailsHtml =
+        '<div><strong>Data:</strong> ' + formatDateHuman(currentDate) + '</div>' +
+        '<div><strong>Horário:</strong> ' + start + ' – ' + end + '</div>' +
+        '<div><strong>Reservado por:</strong> ' + name + '</div>' +
+        (purpose ? '<div><strong>Assunto:</strong> ' + purpose + '</div>' : '');
+
+      var emailNote = '';
+      if(email){
+        emailNote = data.email && data.email.sent
+          ? 'Um email de confirmação foi enviado para ' + email + '.'
+          : 'Não foi possível enviar o email de confirmação (verifique a configuração de SMTP no servidor).';
+      }
+
+      openModal({
+        title: 'Reserva confirmada',
+        text: 'Seu horário foi reservado com sucesso. Só você poderá cancelá-lo neste navegador.',
+        detailsHtml: detailsHtml,
+        emailNote: emailNote
+      });
+
+      refresh();
+    }catch(err){
+      msgEl.textContent = 'Não foi possível salvar a reserva. Verifique sua conexão.';
+      msgEl.className = 'msg err';
+      openModal({
+        isError: true,
+        title: 'Erro de conexão',
+        text: 'Não foi possível falar com o servidor. Tente novamente.'
+      });
+    }finally{
+      submitBtn.disabled = false;
+    }
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>

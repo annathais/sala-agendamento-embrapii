@@ -1,0 +1,15 @@
+{
+  "reservations": [
+    {
+      "id": "mr9ngo8wn94ko",
+      "manageToken": "44917a6868e2d6bf068c57338b4b09372369343a",
+      "name": "Anna T. Costa",
+      "email": "aannatcosta@gmail.com",
+      "purpose": "Macroentrega",
+      "date": "2026-07-07",
+      "start": "13:00",
+      "end": "17:00",
+      "createdAt": "2026-07-06T20:05:37.856Z"
+    }
+  ]
+}
