@@ -2,7 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1E6FB4">
 <title>Sala de Reunião — Agenda</title>
 <meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,60 +56,74 @@
     }
   }
 
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html{-webkit-text-size-adjust:100%;}
   body{
     margin:0;
     background: var(--bg);
     color: var(--text);
     font-family:'Inter',sans-serif;
     min-height:100vh;
-    padding: 32px 16px 64px;
+    padding: 24px 16px calc(48px + env(safe-area-inset-bottom));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
     transition: background 0.2s ease, color 0.2s ease;
+    overflow-x:hidden;
   }
   .wrap{max-width:960px;margin:0 auto;}
 
   header.board{
     display:flex;
     justify-content:space-between;
-    align-items:flex-end;
+    align-items:center;
     gap:16px;
     border-bottom: 2px solid var(--brand-dim);
     padding-bottom:18px;
-    margin-bottom:28px;
+    margin-bottom:24px;
     flex-wrap:wrap;
   }
   .brand-row{
     display:flex;
     align-items:center;
-    gap:14px;
+    gap:12px;
+    min-width:0;
   }
   .brand-row img{
     height:40px;
     width:auto;
     display:block;
+    flex-shrink:0;
   }
+  .brand-row .titles{min-width:0;}
   .room-id{
     font-family:'Space Grotesk',sans-serif;
     font-size:11px;
     letter-spacing:2px;
     color:var(--teal);
     text-transform:uppercase;
-    margin:0 0 6px;
+    margin:0 0 4px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .room-name{
     font-family:'Space Grotesk',sans-serif;
-    font-size:28px;
+    font-size:26px;
     font-weight:600;
     margin:0;
     letter-spacing:-0.3px;
     color:var(--brand-strong);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .clock{
     font-family:'IBM Plex Mono',monospace;
-    font-size:28px;
+    font-size:24px;
     color:var(--brand);
     letter-spacing:1px;
     text-align:right;
+    flex-shrink:0;
   }
   .clock .date{
     display:block;
@@ -123,32 +138,39 @@
   .date-nav{
     display:flex;
     align-items:center;
-    gap:12px;
+    gap:10px;
     margin-bottom:20px;
+    flex-wrap:wrap;
   }
   .date-nav button{
     background:var(--panel);
     border:1px solid var(--line);
     color:var(--text);
-    width:36px;height:36px;
+    width:44px;height:44px;
     border-radius:8px;
     cursor:pointer;
-    font-size:16px;
+    font-size:18px;
     display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    touch-action:manipulation;
   }
   .date-nav button:hover{border-color:var(--brand-dim);}
+  .date-nav button:active{background:var(--panel-2);}
   .date-nav input[type=date]{
     background:var(--panel);
     border:1px solid var(--line);
     color:var(--text);
-    padding:8px 12px;
+    padding:10px 12px;
     border-radius:8px;
     font-family:'IBM Plex Mono',monospace;
-    font-size:14px;
+    font-size:15px;
     color-scheme: light dark;
+    flex:1 1 160px;
+    min-width:0;
+    height:44px;
   }
   .date-nav .today-btn{
-    width:auto;padding:0 14px;
+    width:auto;padding:0 16px;
     font-family:'Inter',sans-serif;
     font-size:13px;font-weight:500;
   }
@@ -217,28 +239,32 @@
     background:var(--panel-2);
     border:1px solid var(--line);
     color:var(--text);
-    padding:10px 12px;
+    padding:12px;
     border-radius:8px;
     font-family:'Inter',sans-serif;
-    font-size:14px;
+    font-size:16px; /* evita zoom automático ao focar em iOS Safari */
+    min-height:46px;
   }
   input[type=time]{font-family:'IBM Plex Mono',monospace;}
   input:focus, textarea:focus{outline:none;border-color:var(--brand);}
   textarea{resize:vertical;min-height:56px;}
 
-  .submit-row{grid-column:1/-1;display:flex;align-items:center;gap:14px;margin-top:4px;}
+  .submit-row{grid-column:1/-1;display:flex;align-items:center;gap:14px;margin-top:4px;flex-wrap:wrap;}
   button.primary{
     background:var(--brand);
     color:#FFFFFF;
     border:none;
-    padding:11px 22px;
+    padding:13px 22px;
     border-radius:8px;
     font-weight:600;
-    font-size:14px;
+    font-size:15px;
     cursor:pointer;
     font-family:'Inter',sans-serif;
+    min-height:46px;
+    touch-action:manipulation;
   }
   button.primary:hover{background:var(--brand-strong);}
+  button.primary:active{transform:scale(0.98);}
   button.primary:disabled{background:var(--line);color:var(--text-faint);cursor:not-allowed;}
   .msg{font-size:13px;}
   .msg.err{color:var(--busy);}
@@ -250,11 +276,12 @@
     border:1px solid var(--line);
     border-left:3px solid var(--brand);
     border-radius:8px;
-    padding:12px 16px;
+    padding:12px 14px;
     display:flex;
     justify-content:space-between;
     align-items:center;
-    gap:12px;
+    gap:10px;
+    flex-wrap:wrap;
   }
   .card.mine{border-left-color: var(--teal);}
   .card .time{
@@ -262,22 +289,24 @@
     color:var(--brand);
     font-size:14px;
     white-space:nowrap;
-    min-width:118px;
+    min-width:100px;
   }
-  .card .who{font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px;}
+  .card .who{font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   .card .who .tag{
     font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;
     color:var(--teal);border:1px solid var(--teal);border-radius:4px;padding:1px 6px;
   }
-  .card .what{font-size:12px;color:var(--text-dim);margin-top:2px;}
-  .card .body{flex:1;min-width:0;}
+  .card .what{font-size:12px;color:var(--text-dim);margin-top:2px;word-break:break-word;}
+  .card .body{flex:1 1 160px;min-width:0;}
   .card button.del{
     background:none;border:1px solid var(--line);color:var(--text-faint);
-    width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:13px;flex-shrink:0;
+    width:36px;height:36px;border-radius:6px;cursor:pointer;font-size:16px;flex-shrink:0;
+    touch-action:manipulation;
   }
   .card button.del:hover{border-color:var(--busy);color:var(--busy);}
+  .card button.del:active{background:var(--busy-bg);}
   .card .locked{
-    font-size:11px;color:var(--text-faint);white-space:nowrap;flex-shrink:0;
+    font-size:11px;color:var(--text-faint);flex-shrink:0;text-align:right;max-width:140px;
   }
   .empty{color:var(--text-faint);font-size:14px;padding:18px 0;text-align:center;}
 
@@ -302,6 +331,8 @@
     border-radius:12px;
     max-width:400px;
     width:100%;
+    max-height:85vh;
+    overflow-y:auto;
     padding:26px;
     text-align:center;
   }
@@ -329,11 +360,52 @@
   .modal .email-note{font-size:12px;color:var(--text-faint);margin-top:10px;}
   .modal button.primary{margin-top:16px;width:100%;}
 
+  @media (max-width:560px){
+    .modal-overlay{
+      align-items:flex-end;
+      padding:0;
+    }
+    .modal{
+      max-width:100%;
+      border-radius:16px 16px 0 0;
+      padding:22px 20px calc(22px + env(safe-area-inset-bottom));
+      max-height:80vh;
+      animation:sheet-up 0.22s ease-out;
+    }
+    @keyframes sheet-up{
+      from{ transform:translateY(24px); opacity:0.4; }
+      to{ transform:translateY(0); opacity:1; }
+    }
+  }
+
+  @media (max-width:640px){
+    .wrap{max-width:100%;}
+    section{margin-bottom:26px;}
+    .panel{padding:18px;}
+    .timeline{gap:5px;}
+  }
+
   @media (max-width:520px){
     form{grid-template-columns:1fr;}
-    .clock{font-size:20px;}
-    .room-name{font-size:22px;}
+    .clock{font-size:19px;}
+    .room-name{font-size:20px;max-width:52vw;}
+    .room-id{max-width:52vw;}
     .brand-row img{height:32px;}
+    .submit-row{flex-direction:column;align-items:stretch;}
+    .submit-row button.primary{width:100%;}
+    .submit-row .msg{text-align:center;}
+    .card{padding:12px;}
+    .card .locked{max-width:100%;text-align:left;flex-basis:100%;}
+  }
+
+  @media (max-width:380px){
+    body{padding:18px 12px 48px;}
+    .room-name{font-size:17px;}
+    .clock{font-size:16px;}
+    .brand-row img{height:28px;}
+    .brand-row{gap:8px;}
+    .date-nav button{width:40px;height:40px;font-size:16px;}
+    .timeline{grid-template-columns: repeat(auto-fill, minmax(64px,1fr));}
   }
 </style>
 </head>
@@ -343,7 +415,7 @@
   <header class="board">
     <div class="brand-row">
       <img src="/assets/logo.png" alt="EMBRAPII Unidade Bioforest - UFOPA">
-      <div>
+      <div class="titles">
         <p class="room-id">Sala 01 · Andar Térreo</p>
         <h1 class="room-name">Sala de Reunião</h1>
       </div>
