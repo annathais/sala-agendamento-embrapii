@@ -1,29 +1,4 @@
-# Sala de Reunião — Backend
-
-Backend simples em Node.js/Express para o agendamento da sala de reunião.
-Resolve os problemas que você tinha:
-
-1. **Persistência real**: as reservas são salvas em `data/db.json` no servidor (não mais no `window.storage` do artifact, que só existe dentro do Claude.ai).
-2. **Pop-up de confirmação**: ao reservar, aparece um modal confirmando o horário e avisando se o email de confirmação foi enviado.
-3. **Email de confirmação**: ao reservar, se o usuário informar o email, o servidor envia uma confirmação via SMTP.
-4. **Cancelamento restrito**: só quem criou a reserva pode cancelá-la. As outras pessoas nem veem o botão de apagar.
-5. **Tema claro/escuro automático**: a página segue o padrão do sistema/navegador de quem está acessando, usando a paleta da EMBRAPII Unidade Bioforest.
-
----
-
-### Como funciona a proteção de cancelamento
-
-Não existe login nesse sistema — então a proteção funciona assim:
-
-- Ao criar uma reserva, o servidor gera uma **chave secreta de cancelamento** (`manageToken`) só para aquela reserva.
-- Essa chave é devolvida **uma única vez**, na resposta da criação, e fica guardada no navegador de quem reservou (`localStorage`).
-- A lista pública de reservas (`GET /api/reservations`) **nunca** mostra essa chave para ninguém.
-- Para cancelar (`DELETE /api/reservations/:id`), é preciso enviar a chave correta — o servidor rejeita com erro 403 qualquer tentativa sem a chave certa.
-- No frontend, o botão de cancelar só aparece para reservas feitas *naquele mesmo navegador*; para as demais, aparece apenas o aviso "Somente quem reservou pode cancelar".
-
-**Importante:** essa proteção impede cliques acidentais e cancelamentos por outras pessoas no uso normal do dia a dia. Não é uma autenticação forte (se alguém limpar o navegador ou usar outro aparelho, perde a chave e não consegue mais cancelar aquela reserva específica — nesse caso, um administrador pode remover manualmente editando `data/db.json`). Se no futuro vocês quiserem um controle mais forte (login por usuário, por exemplo), dá para evoluir esse sistema sem trocar o frontend inteiro.
-
----
+# Agendamento da Sala de Reunião 
 
 ## 1. Rodar localmente
 
