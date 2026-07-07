@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+const { google } = require('googleapis');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
 
@@ -57,14 +58,14 @@ async function sendConfirmationEmail(reservation) {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: reservation.email,
-      subject: `Reserva confirmada — Sala de Reunião (${reservation.date})`,
+      subject: `Reserva confirmada — Sala de Reunião Embrapii(${reservation.date})`,
       text:
         `Olá ${reservation.name},\n\n` +
         `Sua reserva foi confirmada:\n` +
         `Data: ${reservation.date}\n` +
         `Horário: ${reservation.start} - ${reservation.end}\n` +
         `Assunto: ${reservation.purpose || '-'}\n\n` +
-        `Atenciosamente,\nSistema de Agendamento`,
+        `Atenciosamente,\nSistema de Agendamento - Embrapii`,
       html:
         `<p>Olá <strong>${reservation.name}</strong>,</p>` +
         `<p>Sua reserva foi confirmada:</p>` +
@@ -73,12 +74,123 @@ async function sendConfirmationEmail(reservation) {
         `<li><strong>Horário:</strong> ${reservation.start} – ${reservation.end}</li>` +
         `<li><strong>Assunto:</strong> ${reservation.purpose || '-'}</li>` +
         `</ul>` +
-        `<p>Atenciosamente,<br>Sistema de Agendamento</p>`
+        `<p>Atenciosamente,<br>Sistema de Agendamento - Embrapii</p>`
     });
     return { sent: true };
   } catch (err) {
     console.error('Erro ao enviar email:', err.message);
     return { sent: false, reason: err.message };
+  }
+}
+
+// ---------- Integração com Google Sheets (opcional) ----------
+// Usa uma Conta de Serviço do Google — veja o README para o passo a passo de configuração.
+const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
+const SHEET_TAB = process.env.GOOGLE_SHEETS_TAB || 'Reservas';
+let sheetsApi = null;
+
+function loadGoogleCredentials() {
+  // Opção A (recomendada): arquivo .json direto no disco — evita erros de copiar/colar.
+  const filePath = process.env.GOOGLE_SERVICE_ACCOUNT_FILE || path.join(__dirname, 'google-service-account.json');
+  const fs = require('fs');
+  if (fs.existsSync(filePath)) {
+    try {
+      const raw = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(raw);
+    } catch (err) {
+      console.error(`Erro ao ler ${filePath}:`, err.message);
+    }
+  }
+
+  // Opção B: conteúdo em base64 numa variável de ambiente (útil quando não dá para subir arquivo, ex: certos PaaS).
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64) {
+    try {
+      const decoded = Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64.trim(), 'base64').toString('utf8');
+      return JSON.parse(decoded);
+    } catch (err) {
+      console.error('Erro ao decodificar GOOGLE_SERVICE_ACCOUNT_JSON_BASE64:', err.message);
+    }
+  }
+
+  return null;
+}
+
+if (SHEET_ID) {
+  const creds = loadGoogleCredentials();
+  if (creds && creds.client_email && creds.private_key) {
+    try {
+      const auth = new google.auth.JWT(
+        creds.client_email,
+        null,
+        creds.private_key,
+        ['https://www.googleapis.com/auth/spreadsheets']
+      );
+      sheetsApi = google.sheets({ version: 'v4', auth });
+    } catch (err) {
+      console.error('Erro ao configurar Google Sheets:', err.message);
+      sheetsApi = null;
+    }
+  }
+}
+
+// Adiciona uma linha na planilha para uma nova reserva
+async function appendReservationToSheet(reservation) {
+  if (!sheetsApi) return { synced: false, reason: 'Google Sheets não configurado no servidor (.env)' };
+  try {
+    await sheetsApi.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_TAB}!A:J`,
+      valueInputOption: 'USER_ENTERED',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: {
+        values: [[
+          reservation.id,
+          reservation.date,
+          reservation.start,
+          reservation.end,
+          reservation.name,
+          reservation.email || '',
+          reservation.purpose || '',
+          'Confirmada',
+          reservation.createdAt,
+          ''
+        ]]
+      }
+    });
+    return { synced: true };
+  } catch (err) {
+    console.error('Erro ao gravar na planilha:', err.message);
+    return { synced: false, reason: err.message };
+  }
+}
+
+// Marca a linha correspondente como "Cancelada" (mantém histórico em vez de apagar a linha)
+async function markReservationCancelledInSheet(reservationId) {
+  if (!sheetsApi) return { synced: false, reason: 'Google Sheets não configurado no servidor (.env)' };
+  try {
+    const idsRes = await sheetsApi.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_TAB}!A:A`
+    });
+    const ids = (idsRes.data.values || []).map(row => row[0]);
+    const rowIndex = ids.indexOf(reservationId); // 0-based; linha 0 é o cabeçalho
+    if (rowIndex < 1) return { synced: false, reason: 'Linha não encontrada na planilha' };
+
+    const rowNumber = rowIndex + 1; // 1-based para o range do Sheets
+    await sheetsApi.spreadsheets.values.batchUpdate({
+      spreadsheetId: SHEET_ID,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: [
+          { range: `${SHEET_TAB}!H${rowNumber}`, values: [['Cancelada']] },
+          { range: `${SHEET_TAB}!J${rowNumber}`, values: [[new Date().toISOString()]] }
+        ]
+      }
+    });
+    return { synced: true };
+  } catch (err) {
+    console.error('Erro ao atualizar planilha (cancelamento):', err.message);
+    return { synced: false, reason: err.message };
   }
 }
 
@@ -141,18 +253,20 @@ app.post('/api/reservations', async (req, res) => {
   db.get('reservations').push(reservation).write();
 
   const emailResult = await sendConfirmationEmail(reservation);
+  const sheetResult = await appendReservationToSheet(reservation);
 
   // manageToken só é devolvido aqui, na resposta de criação, para quem fez a reserva
   res.status(201).json({
     reservation: toPublic(reservation),
     manageToken: reservation.manageToken,
-    email: emailResult
+    email: emailResult,
+    sheet: sheetResult
   });
 });
 
 // Cancela uma reserva: DELETE /api/reservations/:id
 // Exige o "manageToken" — a chave secreta que só quem criou a reserva recebeu.
-app.delete('/api/reservations/:id', (req, res) => {
+app.delete('/api/reservations/:id', async (req, res) => {
   const { id } = req.params;
   const providedToken = req.get('x-manage-token') || (req.body && req.body.manageToken);
 
@@ -164,6 +278,7 @@ app.delete('/api/reservations/:id', (req, res) => {
   }
 
   db.get('reservations').remove({ id }).write();
+  await markReservationCancelledInSheet(id);
   res.json({ deleted: true });
 });
 
@@ -172,4 +287,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
   console.log(transporter ? 'Envio de email: configurado' : 'Envio de email: NÃO configurado (defina SMTP_* no .env)');
+  console.log(sheetsApi ? 'Google Sheets: configurado' : 'Google Sheets: NÃO configurado (defina GOOGLE_* no .env)');
 });
