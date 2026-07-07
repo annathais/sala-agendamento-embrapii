@@ -90,7 +90,109 @@ qualquer com `pm2` rodando `npm start`.
 
 ---
 
-## 5. Endpoints da API (caso queira integrar com outra coisa)
+## 6. Conectar com uma planilha do Google Sheets (opcional)
+
+Toda vez que alguém reserva ou cancela, o servidor pode gravar/atualizar automaticamente
+uma linha em uma planilha do Google Sheets. Isso funciona com uma **Conta de Serviço do
+Google** — não precisa de login manual nem de o dono da planilha ficar autorizando nada
+toda hora.
+
+### Passo 1 — Criar a planilha
+Crie uma planilha nova no Google Sheets. Na primeira aba, coloque esse cabeçalho na
+linha 1 (a ordem importa):
+
+```
+ID | Data | Início | Término | Reservado por | Email | Assunto | Status | Criado em | Cancelado em
+```
+
+Renomeie a aba para `Reservas` (ou o nome que preferir — só ajustar a variável
+`GOOGLE_SHEETS_TAB` depois).
+
+### Passo 2 — Criar a Conta de Serviço no Google Cloud
+1. Acesse https://console.cloud.google.com/ e crie um projeto (ou use um existente).
+2. No menu, vá em **APIs e Serviços** → **Biblioteca**, procure por **Google Sheets API**
+   e clique em **Ativar**.
+3. Vá em **APIs e Serviços** → **Credenciais** → **Criar credenciais** →
+   **Conta de serviço**.
+4. Dê um nome (ex: `sala-reuniao-bot`) e conclua a criação. Não precisa atribuir papéis
+   de projeto.
+5. Clique na conta de serviço criada → aba **Chaves** → **Adicionar chave** →
+   **Criar nova chave** → formato **JSON**. Um arquivo `.json` será baixado no seu
+   computador — guarde-o, ele não pode ser baixado de novo depois.
+
+### Passo 3 — Compartilhar a planilha com a conta de serviço
+1. Abra o arquivo `.json` baixado e copie o valor do campo `"client_email"`
+   (algo como `sala-reuniao-bot@seu-projeto.iam.gserviceaccount.com`).
+2. Na sua planilha do Google Sheets, clique em **Compartilhar** e adicione esse email
+   como **Editor**.
+
+### Passo 4 — Configurar as credenciais no servidor
+
+Há duas formas de fazer o servidor "enxergar" o arquivo `.json` da conta de serviço.
+**A opção A é a recomendada** — evita os erros de "JSON inválido" que acontecem quando
+o texto em base64 quebra em várias linhas ao copiar/colar no terminal do Windows.
+
+#### Opção A — Arquivo direto no disco (recomendado)
+
+1. Renomeie o arquivo `.json` baixado para `google-service-account.json`.
+2. Coloque esse arquivo na **raiz do projeto**, do lado do `server.js`
+   (ele já está no `.gitignore`, então não corre risco de subir para o GitHub por
+   engano).
+3. Só isso — o servidor detecta o arquivo automaticamente. Não precisa mexer no `.env`
+   para essa parte.
+
+No **Render**, use o recurso **Secret Files** (em Environment → Secret Files):
+- **Filename:** `google-service-account.json`
+- **Contents:** cole o conteúdo inteiro do `.json` (abra o arquivo num editor de texto
+  e copie tudo).
+
+O Render coloca esse arquivo automaticamente na raiz do projeto quando o serviço sobe.
+
+#### Opção B — Variável de ambiente em base64 (alternativa)
+
+Se por algum motivo você não puder usar um arquivo (ex: outra plataforma sem suporte a
+"secret files"), ainda é possível usar a variável `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
+no `.env`. Gere o valor assim, evitando copiar do console (o que costuma quebrar a
+linha e corromper o valor):
+
+```powershell
+# Windows (PowerShell) — gera e já copia para a área de transferência:
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\caminho\para\seu-arquivo.json")) | Set-Clipboard
+```
+```bash
+# Mac/Linux:
+base64 -i caminho/para/seu-arquivo.json | tr -d '\n' | pbcopy   # Mac
+base64 -w0 caminho/para/seu-arquivo.json                          # Linux (copie a saída manualmente)
+```
+
+Depois é só colar (Ctrl+V) direto no `.env`, numa única linha, sem aspas:
+```
+GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=cole_aqui_tudo_em_uma_linha_so
+```
+
+Você também precisa das outras duas variáveis em qualquer uma das opções:
+```
+GOOGLE_SHEETS_ID=1AbCdEfGhIjKlMnOpQrStUvWxYz...
+GOOGLE_SHEETS_TAB=Reservas
+```
+
+- `GOOGLE_SHEETS_ID` é o trecho da URL da planilha entre `/d/` e `/edit`:
+  `https://docs.google.com/spreadsheets/d/`**`ESTE_TRECHO`**`/edit`
+- `GOOGLE_SHEETS_TAB` é o nome da aba (padrão: `Reservas`).
+
+No Render, adicione essas variáveis em **Environment** e faça o deploy novamente.
+
+### Como funciona
+- **Nova reserva** → adiciona uma linha nova na planilha com status `Confirmada`.
+- **Cancelamento** → encontra a linha pelo ID e muda o status para `Cancelada`,
+  preenchendo a data de cancelamento — a linha não é apagada, então a planilha vira um
+  histórico completo de tudo que já aconteceu.
+- Se as variáveis do Google não estiverem configuradas, o sistema continua funcionando
+  normalmente, só sem sincronizar com a planilha (isso nunca trava uma reserva).
+
+---
+
+## 7. Endpoints da API (caso queira integrar com outra coisa)
 
 - `GET /api/reservations?date=2026-07-06` — lista as reservas do dia
 - `POST /api/reservations` — cria uma reserva
