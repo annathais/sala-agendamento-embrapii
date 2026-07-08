@@ -234,7 +234,7 @@
     margin-bottom:6px;
     font-weight:500;
   }
-  input, textarea{
+  input, select, textarea{
     width:100%;
     background:var(--panel-2);
     border:1px solid var(--line);
@@ -242,10 +242,21 @@
     padding:12px;
     border-radius:8px;
     font-family:'Inter',sans-serif;
-    font-size:16px; /* evita zoom automático ao focar em iOS Safari */
+    font-size:16px;
     min-height:46px;
   }
-  input[type=time]{font-family:'IBM Plex Mono',monospace;}
+
+  select{
+    appearance:none;
+    -webkit-appearance:none;
+    -moz-appearance:none;
+    cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23666' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    padding-right:40px;
+  }
   input:focus, textarea:focus{outline:none;border-color:var(--brand);}
   textarea{resize:vertical;min-height:56px;}
 
@@ -460,11 +471,38 @@
         </div>
         <div>
           <label for="f-start">Início</label>
-          <input type="time" id="f-start" step="900" required>
+          <select id="f-start" required>
+            <option value="">Selecione</option>
+            <option value="08:00">08:00</option>
+            <option value="09:00">09:00</option>
+            <option value="10:00">10:00</option>
+            <option value="11:00">11:00</option>
+            <option value="12:00">12:00</option>
+            <option value="13:00">13:00</option>
+            <option value="14:00">14:00</option>
+            <option value="15:00">15:00</option>
+            <option value="16:00">16:00</option>
+            <option value="17:00">17:00</option>
+            <option value="18:00">18:00</option>
+          </select>
         </div>
+
         <div>
           <label for="f-end">Término</label>
-          <input type="time" id="f-end" step="900" required>
+          <select id="f-end" required>
+            <option value="">Selecione</option>
+            <option value="09:00">09:00</option>
+            <option value="10:00">10:00</option>
+            <option value="11:00">11:00</option>
+            <option value="12:00">12:00</option>
+            <option value="13:00">13:00</option>
+            <option value="14:00">14:00</option>
+            <option value="15:00">15:00</option>
+            <option value="16:00">16:00</option>
+            <option value="17:00">17:00</option>
+            <option value="18:00">18:00</option>
+            <option value="19:00">19:00</option>
+          </select>
         </div>
         <div class="submit-row">
           <button type="submit" class="primary" id="submit-btn">Reservar horário</button>
