@@ -414,7 +414,7 @@
 
   <header class="board">
     <div class="brand-row">
-      <img src="/assets/logo.png" alt="EMBRAPII Unidade Bioforest - UFOPA">
+      <img src="assets/logo.png" alt="EMBRAPII Unidade Bioforest - UFOPA">
       <div class="titles">
         <p class="room-id">Sala 01 · Andar Térreo</p>
         <h1 class="room-name">Sala de Reunião</h1>
@@ -498,7 +498,12 @@
 <script>
 (function(){
   var OPEN_HOUR = 8, CLOSE_HOUR = 19;
-  var API_BASE = '/api/reservations';
+
+  // Cole aqui a URL do seu Web App do Google Apps Script
+  // (Implantar → Nova implantação → Aplicativo da Web → copiar a URL gerada).
+  // Precisa terminar em /exec
+  var API_BASE = 'https://script.google.com/macros/s/AKfycbx-WZ7Unxlbd7_-vQEZ1YCV_HAhN4Ne8jrEEc8kv6Dgvz45HTUIsDnmiM3iWu9vTWwAYQ/exec';
+
   var TOKENS_KEY = 'sala-reuniao:my-tokens'; // guarda localmente {reservationId: manageToken}
 
   var dateInput = document.getElementById('date-picker');
@@ -570,6 +575,10 @@
   var currentDate = toKeyDate(new Date());
   dateInput.value = currentDate;
 
+  if(API_BASE.indexOf('COLE_AQUI') !== -1){
+    listEl.innerHTML = '<div class="empty">⚠️ Configure a URL do seu Apps Script na constante API_BASE, no topo do &lt;script&gt; deste arquivo.</div>';
+  }
+
   function updateClock(){
     var now = new Date();
     document.getElementById('clock').childNodes[0].nodeValue = pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds())+' ';
@@ -580,23 +589,34 @@
 
   async function loadReservations(dateStr){
     try{
-      var res = await fetch(API_BASE + '?date=' + encodeURIComponent(dateStr));
-      if(!res.ok) return [];
-      return await res.json();
+      var res = await fetch(API_BASE + '?action=list&date=' + encodeURIComponent(dateStr));
+      var data = await res.json();
+      if(data && data.error) return [];
+      return data || [];
     }catch(e){
       return [];
     }
   }
 
   async function deleteReservation(id, token){
-    var res = await fetch(API_BASE + '/' + encodeURIComponent(id), {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', 'X-Manage-Token': token || '' },
-      body: JSON.stringify({ manageToken: token || '' })
-    });
-    var data = {};
-    try{ data = await res.json(); }catch(e){}
-    return { ok: res.ok, status: res.status, data: data };
+    try{
+      var res = await fetch(API_BASE, {
+        method: 'POST',
+        // text/plain evita o "preflight" CORS que o Apps Script não trata bem
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'cancel', id: id, manageToken: token || '' })
+      });
+      var data = await res.json();
+      if(data && data.forbidden){
+        return { ok:false, forbidden:true, data:data };
+      }
+      if(data && data.error){
+        return { ok:false, data:data };
+      }
+      return { ok:true, data:data };
+    }catch(e){
+      return { ok:false, data:{ error:'Falha de conexão com o servidor.' } };
+    }
   }
 
   function renderTimeline(reservations){
@@ -670,7 +690,7 @@
           if(result.ok){
             forgetMyToken(r.id);
             refresh();
-          } else if(result.status === 403){
+          } else if(result.forbidden){
             openModal({
               isError: true,
               title: 'Sem permissão',
@@ -698,6 +718,7 @@
   }
 
   async function refresh(){
+    if(API_BASE.indexOf('COLE_AQUI') !== -1) return;
     currentDate = dateInput.value;
     var reservations = await loadReservations(currentDate);
     renderTimeline(reservations);
@@ -750,15 +771,17 @@
     try{
       var res = await fetch(API_BASE, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // text/plain evita o "preflight" CORS que o Apps Script não trata bem
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
+          action: 'create',
           name: name, email: email, purpose: purpose,
           date: currentDate, start: start, end: end
         })
       });
       var data = await res.json();
 
-      if(!res.ok){
+      if(data.error){
         msgEl.textContent = data.error || 'Não foi possível salvar a reserva.';
         msgEl.className = 'msg err';
         openModal({
@@ -812,7 +835,9 @@
     }
   });
 
-  refresh();
+  if(API_BASE.indexOf('COLE_AQUI') === -1){
+    refresh();
+  }
 })();
 </script>
 </body>
