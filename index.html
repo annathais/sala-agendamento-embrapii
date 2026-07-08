@@ -418,6 +418,88 @@
     .date-nav button{width:40px;height:40px;font-size:16px;}
     .timeline{grid-template-columns: repeat(auto-fill, minmax(64px,1fr));}
   }
+
+  .view-switch{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+    margin-bottom:18px;
+  }
+
+  .view-btn{
+      padding:10px 18px;
+      border:1px solid var(--line);
+      background:var(--panel);
+      color:var(--text);
+      border-radius:8px;
+      cursor:pointer;
+  }
+
+  .view-btn.active{
+      background:var(--brand);
+      color:white;
+  }
+
+  .month-nav{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      margin-bottom:18px;
+  }
+
+  #month-calendar{
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:8px;
+  }
+
+  .day-cell{
+      min-height:90px;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:8px;
+      padding:10px;
+      cursor:pointer;
+      position:relative;
+      transition:.2s;
+  }
+
+  .day-cell:hover{
+      border-color:var(--brand);
+      transform:translateY(-2px);
+  }
+
+  .day-number{
+      font-weight:700;
+      font-size:18px;
+  }
+
+  .booking-status{
+      position:absolute;
+      left:8px;
+      right:8px;
+      bottom:8px;
+      font-size:11px;
+      font-weight:600;
+      padding:4px;
+      border-radius:6px;
+      text-align:center;
+  }
+
+  .booking-status.free{
+      background:var(--free-bg);
+      color:var(--free);
+  }
+
+  .booking-status.medium{
+      background:#FFF3D6;
+      color:#B87000;
+  }
+
+  .booking-status.full{
+      background:var(--busy-bg);
+      color:var(--busy);
+  }
 </style>
 </head>
 <body>
@@ -437,21 +519,45 @@
     </div>
   </header>
 
-  <div class="date-nav">
-    <button id="prev-day" aria-label="Dia anterior">‹</button>
-    <input type="date" id="date-picker">
-    <button id="next-day" aria-label="Próximo dia">›</button>
-    <button class="today-btn" id="today-btn">Hoje</button>
+  <div class="view-switch">
+    <button
+        class="view-btn active"
+        data-view="day">
+        Dia
+    </button>
+    <button
+        class="view-btn"
+        data-view="month">
+        Mês
+    </button>
   </div>
 
-  <section>
-    <p class="section-label">Ocupação do dia (08:00 – 19:00)</p>
-    <div class="timeline" id="timeline"></div>
-    <div class="legend">
-      <span><i class="dot free"></i>Livre</span>
-      <span><i class="dot busy"></i>Reservado</span>
+  <div id="day-view">
+    <div class="date-nav">
+      <button id="prev-day" aria-label="Dia anterior">‹</button>
+      <input type="date" id="date-picker">
+      <button id="next-day" aria-label="Próximo dia">›</button>
+      <button class="today-btn" id="today-btn">Hoje</button>
     </div>
-  </section>
+
+    <section>
+      <p class="section-label">Ocupação do dia (08:00 – 19:00)</p>
+      <div class="timeline" id="timeline"></div>
+      <div class="legend">
+        <span><i class="dot free"></i>Livre</span>
+        <span><i class="dot busy"></i>Reservado</span>
+      </div>
+    </section>
+  </div>
+
+  <div id="month-view" style="display:none">
+    <div class="month-nav">
+        <button id="prev-month">‹</button>
+        <h2 id="month-title"></h2>
+        <button id="next-month">›</button>
+    </div>
+    <div id="month-calendar"></div>
+  </div>
 
   <section>
     <p class="section-label">Nova reserva</p>
@@ -612,6 +718,96 @@
 
   var currentDate = toKeyDate(new Date());
   dateInput.value = currentDate;
+
+  var currentMonth = new Date();
+
+  function setView(view){
+    document.getElementById("day-view").style.display =
+        view==="day"?"block":"none";
+    document.getElementById("month-view").style.display =
+        view==="month"?"block":"none";
+    document.querySelectorAll(".view-btn").forEach(btn=>{
+        btn.classList.toggle(
+            "active",
+            btn.dataset.view===view
+        );
+    });
+    if(view==="month"){
+        renderMonth();
+    }
+  }
+
+  document.querySelectorAll(".view-btn").forEach(btn=>{
+      btn.onclick=()=>setView(btn.dataset.view);
+  });
+
+  async function renderMonth(){
+    const calendar=document.getElementById("month-calendar");
+    calendar.innerHTML="";
+    document.getElementById("month-title").textContent=
+        currentMonth.toLocaleDateString("pt-BR",{
+            month:"long",
+            year:"numeric"
+        });
+
+    const year=currentMonth.getFullYear();
+    const month=currentMonth.getMonth();
+    const days=new Date(year,month+1,0).getDate();
+
+    for(let d=1;d<=days;d++){
+        const date=
+            year+"-"+
+            String(month+1).padStart(2,"0")+"-"+
+            String(d).padStart(2,"0");
+        const reservations=await loadReservations(date);
+        const cell=document.createElement("div");
+        cell.className="day-cell";
+        let statusClass="free";
+        let text="Livre";
+
+        if(reservations.length>0){
+            if(reservations.length<=3){
+                statusClass="medium";
+            }else{
+                statusClass="full";
+            }
+            text=
+                reservations.length+
+                " reserva"+
+                (reservations.length>1?"s":"");
+        }
+        cell.innerHTML=
+        `
+        <div class="day-number">${d}</div>
+        <div class="booking-status ${statusClass}">
+            ${text}
+        </div>
+        `;
+        cell.onclick=function(){
+            dateInput.value=date;
+            setView("day");
+            refresh();
+            timeline.scrollIntoView({
+                behavior:"smooth"
+            });
+        };
+        calendar.appendChild(cell);
+    }
+  }
+
+  document.getElementById("prev-month").onclick=function(){
+    currentMonth.setMonth(
+        currentMonth.getMonth()-1
+    );
+    renderMonth();
+  };
+
+  document.getElementById("next-month").onclick=function(){
+      currentMonth.setMonth(
+          currentMonth.getMonth()+1
+      );
+      renderMonth();
+  };
 
   if(API_BASE.indexOf('COLE_AQUI') !== -1){
     listEl.innerHTML = '<div class="empty">⚠️ Configure a URL do seu Apps Script na constante API_BASE, no topo do &lt;script&gt; deste arquivo.</div>';
