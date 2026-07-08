@@ -414,11 +414,11 @@
 
   .day-cell{
     aspect-ratio: 1 / 1;
-    min-height:64px;
+    min-height:52px;
     background:var(--panel);
     border:1px solid var(--line);
     border-radius:8px;
-    padding:8px;
+    padding:6px;
     cursor:pointer;
     position:relative;
     display:flex;
@@ -445,18 +445,21 @@
   .day-number{
     font-family:'Space Grotesk',sans-serif;
     font-weight:600;
-    font-size:15px;
+    font-size:13px;
     color:var(--text);
   }
   .day-cell.today .day-number{color:var(--brand);}
   .booking-status{
     margin-top:auto;
-    font-size:10px;
-    font-weight:600;
-    padding:3px 4px;
-    border-radius:5px;
+    font-size:9px;
+    font-weight:700;
+    padding:2px 4px;
+    border-radius:4px;
     text-align:center;
     line-height:1.3;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
   .booking-status.free{
     background:var(--free-bg);
@@ -470,6 +473,20 @@
     background:var(--busy-bg);
     color:var(--busy);
   }
+
+  /* ---------- Lista de reservas agrupada por dia (visão mensal) ---------- */
+  .month-list-day-header{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:12px;
+    font-weight:600;
+    color:var(--text-dim);
+    text-transform:capitalize;
+    margin:16px 0 6px;
+    padding-bottom:4px;
+    border-bottom:1px solid var(--line);
+  }
+  .month-list-day-header:first-child{margin-top:0;}
+
 
   /* ---------- Modal de confirmação ---------- */
   .modal-overlay{
@@ -540,6 +557,9 @@
     section{margin-bottom:26px;}
     .panel{padding:18px;}
     .timeline{gap:5px;}
+    .weekday-header{gap:4px;}
+    #month-calendar{gap:4px;}
+    .day-cell{min-height:44px;padding:5px;}
   }
 
   @media (max-width:520px){
@@ -553,10 +573,23 @@
     .submit-row .msg{text-align:center;}
     .card{padding:12px;}
     .card .locked{max-width:100%;text-align:left;flex-basis:100%;}
-    .day-cell{min-height:52px;padding:6px;}
-    .day-number{font-size:13px;}
-    .booking-status{font-size:9px;padding:2px 3px;}
-    .month-nav h2{font-size:16px;}
+    .month-nav h2{font-size:15px;}
+    .month-nav button{width:34px;height:34px;font-size:16px;}
+    .weekday-header span{font-size:9px;padding-bottom:2px;}
+    #month-calendar{gap:3px;}
+    .day-cell{
+      aspect-ratio:auto;
+      min-height:36px;
+      padding:3px 4px;
+      border-radius:6px;
+    }
+    .day-number{font-size:11px;}
+    .booking-status{
+      font-size:8px;
+      padding:1px 2px;
+      border-radius:3px;
+      margin-top:2px;
+    }
   }
 
   @media (max-width:380px){
@@ -567,7 +600,11 @@
     .brand-row{gap:8px;}
     .date-nav button{width:40px;height:40px;font-size:16px;}
     .timeline{grid-template-columns: repeat(auto-fill, minmax(64px,1fr));}
-    .weekday-header span{font-size:9px;}
+    .weekday-header span{font-size:8px;}
+    #month-calendar{gap:2px;}
+    .day-cell{min-height:32px;padding:2px 3px;}
+    .day-number{font-size:10px;}
+    .booking-status{font-size:7px;padding:1px;}
   }
 </style>
 </head>
@@ -689,7 +726,7 @@
   </section>
 
   <section>
-    <p class="section-label">Reservas do dia — visível para todos</p>
+    <p class="section-label" id="list-section-label">Reservas do dia — visível para todos</p>
     <div class="list" id="reservation-list"></div>
   </section>
 
@@ -723,6 +760,7 @@
   var dateInput = document.getElementById('date-picker');
   var timeline = document.getElementById('timeline');
   var listEl = document.getElementById('reservation-list');
+  var listSectionLabel = document.getElementById('list-section-label');
   var form = document.getElementById('booking-form');
   var msgEl = document.getElementById('form-msg');
   var submitBtn = document.getElementById('submit-btn');
@@ -875,6 +913,77 @@
     }
   }
 
+  // Constrói um card de reserva (usado tanto na visão de dia quanto na de mês).
+  // onCancelled: callback chamado depois de um cancelamento bem-sucedido,
+  // para cada visão atualizar do jeito certo (dia recarrega o dia, mês recarrega o mês).
+  function buildReservationCard(r, myTokens, onCancelled){
+    var myToken = myTokens[r.id];
+    var isMine = !!myToken;
+
+    var card = document.createElement('div');
+    card.className = 'card' + (isMine ? ' mine' : '');
+
+    var time = document.createElement('div');
+    time.className = 'time';
+    time.textContent = r.start + ' – ' + r.end;
+
+    var body = document.createElement('div');
+    body.className = 'body';
+    var who = document.createElement('div');
+    who.className = 'who';
+    who.textContent = r.name;
+    if(isMine){
+      var tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = 'Sua reserva';
+      who.appendChild(tag);
+    }
+    var what = document.createElement('div');
+    what.className = 'what';
+    what.textContent = r.purpose || 'Sem assunto informado';
+    body.appendChild(who);
+    body.appendChild(what);
+
+    card.appendChild(time);
+    card.appendChild(body);
+
+    if(isMine){
+      // Só quem reservou vê e consegue usar o botão de cancelar
+      var del = document.createElement('button');
+      del.className = 'del';
+      del.setAttribute('aria-label','Cancelar reserva');
+      del.textContent = '×';
+      del.addEventListener('click', async function(){
+        var result = await deleteReservation(r.id, myToken);
+        if(result.ok){
+          forgetMyToken(r.id);
+          onCancelled();
+        } else if(result.forbidden){
+          openModal({
+            isError: true,
+            title: 'Sem permissão',
+            text: 'Apenas quem criou esta reserva pode cancelá-la.'
+          });
+        } else {
+          openModal({
+            isError: true,
+            title: 'Não foi possível cancelar',
+            text: (result.data && result.data.error) || 'Tente novamente em instantes.'
+          });
+        }
+      });
+      card.appendChild(del);
+    } else {
+      // Outras pessoas veem apenas um aviso, sem opção de apagar
+      var locked = document.createElement('span');
+      locked.className = 'locked';
+      locked.textContent = 'Somente quem reservou pode cancelar';
+      card.appendChild(locked);
+    }
+
+    return card;
+  }
+
   function renderList(reservations, dateStr){
     listEl.innerHTML = '';
     if(reservations.length === 0){
@@ -885,79 +994,52 @@
       return;
     }
     var myTokens = getMyTokens();
-
     reservations.forEach(function(r){
-      var myToken = myTokens[r.id];
-      var isMine = !!myToken;
+      listEl.appendChild(buildReservationCard(r, myTokens, refresh));
+    });
+  }
 
-      var card = document.createElement('div');
-      card.className = 'card' + (isMine ? ' mine' : '');
+  // Lista do rodapé para a visão de MÊS: todas as reservas do mês,
+  // agrupadas por dia, usando os dados já buscados em UMA única requisição
+  // (a mesma que preenche o calendário) — sem chamadas extras à API.
+  function renderMonthList(monthData, year, month){
+    var monthName = new Date(year, month, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    listSectionLabel.textContent = 'Reservas de ' + monthName + ' — visível para todos';
 
-      var time = document.createElement('div');
-      time.className = 'time';
-      time.textContent = r.start + ' – ' + r.end;
+    listEl.innerHTML = '';
+    var dates = Object.keys(monthData).sort();
 
-      var body = document.createElement('div');
-      body.className = 'body';
-      var who = document.createElement('div');
-      who.className = 'who';
-      who.textContent = r.name;
-      if(isMine){
-        var tag = document.createElement('span');
-        tag.className = 'tag';
-        tag.textContent = 'Sua reserva';
-        who.appendChild(tag);
-      }
-      var what = document.createElement('div');
-      what.className = 'what';
-      what.textContent = r.purpose || 'Sem assunto informado';
-      body.appendChild(who);
-      body.appendChild(what);
+    var hasAny = dates.some(function(d){ return monthData[d] && monthData[d].length > 0; });
+    if(!hasAny){
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'Nenhuma reserva em ' + monthName + '.';
+      listEl.appendChild(empty);
+      return;
+    }
 
-      card.appendChild(time);
-      card.appendChild(body);
+    var myTokens = getMyTokens();
+    var onCancelled = function(){ renderMonth(); }; // recarrega calendário + lista do mês (1 requisição)
 
-      if(isMine){
-        // Só quem reservou vê e consegue usar o botão de cancelar
-        var del = document.createElement('button');
-        del.className = 'del';
-        del.setAttribute('aria-label','Cancelar reserva');
-        del.textContent = '×';
-        del.addEventListener('click', async function(){
-          var result = await deleteReservation(r.id, myToken);
-          if(result.ok){
-            forgetMyToken(r.id);
-            refresh();
-          } else if(result.forbidden){
-            openModal({
-              isError: true,
-              title: 'Sem permissão',
-              text: 'Apenas quem criou esta reserva pode cancelá-la.'
-            });
-          } else {
-            openModal({
-              isError: true,
-              title: 'Não foi possível cancelar',
-              text: (result.data && result.data.error) || 'Tente novamente em instantes.'
-            });
-          }
-        });
-        card.appendChild(del);
-      } else {
-        // Outras pessoas veem apenas um aviso, sem opção de apagar
-        var locked = document.createElement('span');
-        locked.className = 'locked';
-        locked.textContent = 'Somente quem reservou pode cancelar';
-        card.appendChild(locked);
-      }
+    dates.forEach(function(dateStr){
+      var dayReservations = monthData[dateStr];
+      if(!dayReservations || dayReservations.length === 0) return;
 
-      listEl.appendChild(card);
+      var header = document.createElement('div');
+      header.className = 'month-list-day-header';
+      header.textContent = formatDateHuman(dateStr);
+      listEl.appendChild(header);
+
+      dayReservations.forEach(function(r){
+        listEl.appendChild(buildReservationCard(r, myTokens, onCancelled));
+      });
     });
   }
 
   async function refresh(){
     if(API_BASE.indexOf('COLE_AQUI') !== -1) return;
     currentDate = dateInput.value;
+    listSectionLabel.textContent = 'Reservas do dia — visível para todos';
     var reservations = await loadReservations(currentDate);
     renderTimeline(reservations);
     renderList(reservations, currentDate);
@@ -992,6 +1074,8 @@
     });
     if(view === 'month'){
       renderMonth();
+    } else {
+      refresh();
     }
   }
 
@@ -1041,7 +1125,7 @@
       var statusText = 'Livre';
       if(dayReservations.length > 0){
         statusClass = dayReservations.length <= 3 ? 'medium' : 'full';
-        statusText = dayReservations.length + (dayReservations.length > 1 ? ' reservas' : ' reserva');
+        statusText = String(dayReservations.length); // texto curto: cabe em células pequenas no celular
       }
       var status = document.createElement('div');
       status.className = 'booking-status ' + statusClass;
@@ -1052,12 +1136,15 @@
         return function(){
           dateInput.value = clickedDate;
           setView('day');
-          refresh();
         };
       }(dateStr));
 
       monthCalendar.appendChild(cell);
     }
+
+    // Lista do rodapé passa a mostrar as reservas do mês inteiro,
+    // reaproveitando os dados já buscados acima (sem requisição extra).
+    renderMonthList(monthData, year, month);
   }
 
   document.getElementById('prev-month').addEventListener('click', function(){
