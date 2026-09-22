@@ -498,6 +498,10 @@
   .day-cell:active{
     transform:scale(0.97);
   }
+  .day-cell:focus-visible{
+    outline:2px solid var(--brand);
+    outline-offset:2px;
+  }
   .day-cell.empty{
     visibility:hidden;
     pointer-events:none;
@@ -798,7 +802,7 @@
         </div>
         <div class="submit-row">
           <button type="submit" class="primary" id="submit-btn">Reservar horário</button>
-          <span class="msg" id="form-msg"></span>
+          <span class="msg" id="form-msg" role="status" aria-live="polite"></span>
         </div>
       </form>
     </div>
@@ -1313,12 +1317,29 @@
       status.textContent = statusText;
       cell.appendChild(status);
 
-      cell.addEventListener('click', function(clickedDate){
-        return function(){
+      // Acessível por teclado: role de botão, foco navegável (tabindex) e
+      // ativação com Enter/Espaço, além do clique — sem isso, quem navega
+      // só com teclado não conseguia escolher um dia no calendário.
+      cell.setAttribute('role', 'button');
+      cell.setAttribute('tabindex', '0');
+      var occupancyLabel = occMinutes > 0
+        ? (formatOccupiedLabel_(occMinutes) + ' reservadas de 11 horas')
+        : 'livre';
+      cell.setAttribute('aria-label', capitalizeFirst_(formatDateHuman(dateStr)) + ', ' + occupancyLabel);
+
+      (function(clickedDate){
+        function selectThisDay(){
           dateInput.value = clickedDate;
           setView('day');
-        };
-      }(dateStr));
+        }
+        cell.addEventListener('click', selectThisDay);
+        cell.addEventListener('keydown', function(e){
+          if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'){
+            e.preventDefault();
+            selectThisDay();
+          }
+        });
+      })(dateStr);
 
       monthCalendar.appendChild(cell);
     }
