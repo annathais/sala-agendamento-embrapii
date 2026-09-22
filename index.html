@@ -791,6 +791,11 @@
 <script>
 (function(){
   var OPEN_HOUR = 8, CLOSE_HOUR = 19;
+  var TOTAL_OPEN_MINUTES = (CLOSE_HOUR - OPEN_HOUR) * 60;
+  // A partir de qual fração do dia ocupada o dia é marcado como "Cheio"
+  // (vermelho) no calendário mensal, em vez de "Parcial" (laranja).
+  // Ex.: 0.5 = a partir de metade do horário de funcionamento reservado.
+  var FULL_DAY_THRESHOLD = 0.5;
 
   // Salas disponíveis. Precisa bater com a lista ROOM_NAMES do Code.gs —
   // se adicionar uma sala aqui, adicione lá também (e vice-versa).
@@ -860,6 +865,23 @@
   function parseTimeToMinutes(t){
     var parts = t.split(':');
     return parseInt(parts[0],10)*60 + parseInt(parts[1],10);
+  }
+  // Soma as horas efetivamente reservadas no dia. Como o backend já impede
+  // reservas sobrepostas na mesma sala, basta somar a duração de cada uma
+  // (sem precisar mesclar intervalos).
+  function occupiedMinutes_(dayReservations){
+    var total = 0;
+    (dayReservations || []).forEach(function(r){
+      total += parseTimeToMinutes(r.end) - parseTimeToMinutes(r.start);
+    });
+    return total;
+  }
+  // Texto curto para caber na célula do calendário: "2h", "1,5h" etc.
+  function formatOccupiedLabel_(minutes){
+    var hours = minutes / 60;
+    var rounded = Math.round(hours * 10) / 10;
+    var isWhole = Math.abs(rounded - Math.round(rounded)) < 0.001;
+    return (isWhole ? String(Math.round(rounded)) : rounded.toFixed(1).replace('.', ',')) + 'h';
   }
   function formatDateHuman(dateStr){
     var d = new Date(dateStr+'T00:00:00');
@@ -1224,9 +1246,11 @@
 
       var statusClass = 'free';
       var statusText = 'Livre';
-      if(dayReservations.length > 0){
-        statusClass = dayReservations.length <= 3 ? 'medium' : 'full';
-        statusText = String(dayReservations.length); // texto curto: cabe em células pequenas no celular
+      var occMinutes = occupiedMinutes_(dayReservations);
+      if(occMinutes > 0){
+        var ratio = occMinutes / TOTAL_OPEN_MINUTES;
+        statusClass = ratio < FULL_DAY_THRESHOLD ? 'medium' : 'full';
+        statusText = formatOccupiedLabel_(occMinutes); // ex.: "3h" — horas já reservadas no dia
       }
       var status = document.createElement('div');
       status.className = 'booking-status ' + statusClass;
