@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#1E6FB4">
-<title>Sala de Reunião - Agenda</title>
+<title>Sala de Reunião — Agenda</title>
 
 <!-- Favicon -->
 <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
@@ -427,7 +427,6 @@
     font-weight:600;
     color:var(--brand-strong);
     margin:0;
-    text-transform:capitalize;
     text-align:center;
     flex:1;
   }
@@ -522,7 +521,6 @@
     font-size:12px;
     font-weight:600;
     color:var(--text-dim);
-    text-transform:capitalize;
     margin:16px 0 6px;
     padding-bottom:4px;
     border-bottom:1px solid var(--line);
@@ -653,11 +651,6 @@
 <body>
 <div class="wrap">
 
-  <div class="room-bar">
-    <label for="room-select">Sala</label>
-    <select id="room-select" aria-label="Selecionar sala"></select>
-  </div>
-
   <header class="board">
     <div class="brand-row">
       <img src="assets/logo.png" alt="EMBRAPII Unidade Bioforest - UFOPA">
@@ -671,6 +664,11 @@
       <span class="date" id="clock-date">carregando...</span>
     </div>
   </header>
+
+  <div class="room-bar">
+    <label for="room-select">Sala</label>
+    <select id="room-select" aria-label="Selecionar sala"></select>
+  </div>
 
   <div class="view-switch">
     <button class="view-btn active" data-view="day">Dia</button>
@@ -869,6 +867,13 @@
   function formatDateHuman(dateStr){
     var d = new Date(dateStr+'T00:00:00');
     return d.toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+  }
+  // Deixa maiúscula só a PRIMEIRA letra da string — diferente do CSS
+  // text-transform:capitalize, que deixaria "de" e "feira" maiúsculos
+  // também (ex.: "Terça-Feira, 22 De Setembro De 2026"). Usar só onde a
+  // data aparece sozinha como título (nunca no meio de uma frase).
+  function capitalizeFirst_(s){
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   }
 
   function openModal(opts){
@@ -1126,7 +1131,7 @@
 
       var header = document.createElement('div');
       header.className = 'month-list-day-header';
-      header.textContent = formatDateHuman(dateStr);
+      header.textContent = capitalizeFirst_(formatDateHuman(dateStr));
       listEl.appendChild(header);
 
       dayReservations.forEach(function(r){
@@ -1188,7 +1193,7 @@
     var year = currentMonth.getFullYear();
     var month = currentMonth.getMonth(); // 0-based
 
-    monthTitle.textContent = currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    monthTitle.textContent = capitalizeFirst_(currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }));
     monthCalendar.innerHTML = '<div class="empty">Carregando...</div>';
 
     // UMA única requisição para o mês inteiro, em vez de uma por dia.
