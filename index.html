@@ -150,9 +150,6 @@
     color:var(--teal);
     text-transform:uppercase;
     margin:0 0 4px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
   }
   .room-name{
     font-family:'Space Grotesk',sans-serif;
@@ -161,9 +158,7 @@
     margin:0;
     letter-spacing:-0.3px;
     color:var(--brand-strong);
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
+    line-height:1.15;
   }
   .clock{
     font-family:'IBM Plex Mono',monospace;
@@ -604,9 +599,11 @@
 
   @media (max-width:520px){
     form{grid-template-columns:1fr;}
-    .clock{font-size:19px;}
-    .room-name{font-size:20px;max-width:52vw;}
-    .room-id{max-width:52vw;}
+    header.board{flex-direction:column;align-items:flex-start;gap:10px;}
+    .brand-row{width:100%;}
+    .clock{text-align:left;align-self:flex-start;font-size:19px;}
+    .clock .date{margin-top:0;}
+    .room-name{font-size:20px;}
     .brand-row img{height:32px;}
     .submit-row{flex-direction:column;align-items:stretch;}
     .submit-row button.primary{width:100%;}
