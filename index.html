@@ -86,6 +86,40 @@
   }
   .wrap{max-width:960px;margin:0 auto;}
 
+  .room-bar{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .room-bar label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    flex-shrink:0;
+  }
+  .room-bar select{
+    flex:1;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--brand-strong);
+    padding:12px 40px 12px 14px;
+    border-radius:8px;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    cursor:pointer;
+    min-height:46px;
+    appearance:none;-webkit-appearance:none;-moz-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238E9BA8' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    touch-action:manipulation;
+  }
+  .room-bar select:focus{outline:none;border-color:var(--brand);}
+
   header.board{
     display:flex;
     justify-content:space-between;
@@ -619,12 +653,17 @@
 <body>
 <div class="wrap">
 
+  <div class="room-bar">
+    <label for="room-select">Sala</label>
+    <select id="room-select" aria-label="Selecionar sala"></select>
+  </div>
+
   <header class="board">
     <div class="brand-row">
       <img src="assets/logo.png" alt="EMBRAPII Unidade Bioforest - UFOPA">
       <div class="titles">
-        <p class="room-id">Sala 01 · Andar Térreo</p>
-        <h1 class="room-name">Sala de Reunião</h1>
+        <p class="room-id" id="room-subtitle">Sala 01 · Andar Térreo</p>
+        <h1 class="room-name" id="room-title">Sala de Reunião</h1>
       </div>
     </div>
     <div class="clock" id="clock">
@@ -758,10 +797,18 @@
 (function(){
   var OPEN_HOUR = 8, CLOSE_HOUR = 19;
 
+  // Salas disponíveis. Precisa bater com a lista ROOM_NAMES do Code.gs —
+  // se adicionar uma sala aqui, adicione lá também (e vice-versa).
+  var ROOMS = [
+    { name: 'Sala de Reunião Maior', subtitle: 'Sala 01 · Andar Térreo' },
+    { name: 'Sala de Reunião Menor', subtitle: 'Sala 02 · Andar Térreo' }
+  ];
+  var ROOM_STORAGE_KEY = 'sala-reuniao:last-room';
+
   // Cole aqui a URL do seu Web App do Google Apps Script
   // (Implantar → Nova implantação → Aplicativo da Web → copiar a URL gerada).
   // Precisa terminar em /exec
-  var API_BASE = 'https://script.google.com/macros/s/AKfycbx-WZ7Unxlbd7_-vQEZ1YCV_HAhN4Ne8jrEEc8kv6Dgvz45HTUIsDnmiM3iWu9vTWwAYQ/exec';
+  var API_BASE = 'https://script.google.com/macros/s/AKfycby5jXJY_3F2gFT-lHqzZLubRdl_IbLPVYKYRtpNNRvArD-7Eu7sqUKvA3ZKj3bVcr79/exec';
 
   var TOKENS_KEY = 'sala-reuniao:my-tokens'; // guarda localmente {reservationId: manageToken}
 
@@ -772,6 +819,10 @@
   var form = document.getElementById('booking-form');
   var msgEl = document.getElementById('form-msg');
   var submitBtn = document.getElementById('submit-btn');
+
+  var roomSelect = document.getElementById('room-select');
+  var roomTitleEl = document.getElementById('room-title');
+  var roomSubtitleEl = document.getElementById('room-subtitle');
 
   var monthCalendar = document.getElementById('month-calendar');
   var monthTitle = document.getElementById('month-title');
@@ -842,6 +893,46 @@
   dateInput.value = currentDate;
   var currentMonth = new Date(); // usado só pela visão de mês
 
+  // ---------- Seleção de sala ----------
+  function getSavedRoom_(){
+    try{ return localStorage.getItem(ROOM_STORAGE_KEY); }catch(e){ return null; }
+  }
+  function saveRoom_(name){
+    try{ localStorage.setItem(ROOM_STORAGE_KEY, name); }catch(e){}
+  }
+  function findRoom_(name){
+    for(var i=0;i<ROOMS.length;i++){ if(ROOMS[i].name === name) return ROOMS[i]; }
+    return ROOMS[0];
+  }
+
+  ROOMS.forEach(function(r){
+    var opt = document.createElement('option');
+    opt.value = r.name;
+    opt.textContent = r.name;
+    roomSelect.appendChild(opt);
+  });
+
+  var savedRoom = getSavedRoom_();
+  var currentRoom = (savedRoom && ROOMS.some(function(r){ return r.name === savedRoom; })) ? savedRoom : ROOMS[0].name;
+  roomSelect.value = currentRoom;
+
+  function updateRoomHeader_(){
+    var r = findRoom_(currentRoom);
+    roomTitleEl.textContent = r.name;
+    roomSubtitleEl.textContent = r.subtitle;
+  }
+  updateRoomHeader_();
+
+  roomSelect.addEventListener('change', function(){
+    currentRoom = roomSelect.value;
+    saveRoom_(currentRoom);
+    updateRoomHeader_();
+    msgEl.textContent = '';
+    msgEl.className = 'msg';
+    var monthVisible = document.getElementById('month-view').style.display !== 'none';
+    if(monthVisible){ renderMonth(); } else { refresh(); }
+  });
+
   if(API_BASE.indexOf('COLE_AQUI') !== -1){
     listEl.innerHTML = '<div class="empty">⚠️ Configure a URL do seu Apps Script na constante API_BASE, no topo do &lt;script&gt; deste arquivo.</div>';
   }
@@ -858,7 +949,7 @@
 
   async function loadReservations(dateStr){
     try{
-      var res = await fetch(API_BASE + '?action=list&date=' + encodeURIComponent(dateStr));
+      var res = await fetch(API_BASE + '?action=list&date=' + encodeURIComponent(dateStr) + '&room=' + encodeURIComponent(currentRoom));
       var data = await res.json();
       if(data && data.error) return [];
       return data || [];
@@ -871,7 +962,7 @@
   // Retorna um objeto { "2026-07-05": [ {...}, {...} ], ... }
   async function loadMonthReservations(yearMonthStr){
     try{
-      var res = await fetch(API_BASE + '?action=listMonth&month=' + encodeURIComponent(yearMonthStr));
+      var res = await fetch(API_BASE + '?action=listMonth&month=' + encodeURIComponent(yearMonthStr) + '&room=' + encodeURIComponent(currentRoom));
       var data = await res.json();
       if(data && data.error) return {};
       return data || {};
@@ -1198,7 +1289,7 @@
         body: JSON.stringify({
           action: 'create',
           name: name, email: email, purpose: purpose,
-          date: currentDate, start: start, end: end
+          date: currentDate, start: start, end: end, room: currentRoom
         })
       });
       var data = await res.json();
@@ -1224,6 +1315,7 @@
       form.reset();
 
       var detailsHtml =
+        '<div><strong>Sala:</strong> ' + currentRoom + '</div>' +
         '<div><strong>Data:</strong> ' + formatDateHuman(currentDate) + '</div>' +
         '<div><strong>Horário:</strong> ' + start + ' – ' + end + '</div>' +
         '<div><strong>Reservado por:</strong> ' + name + '</div>' +
