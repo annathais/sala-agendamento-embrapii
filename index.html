@@ -1050,13 +1050,13 @@
     }
   }
 
-  async function deleteReservation(id, token){
+  async function deleteReservation(id, token, room){
     try{
       var res = await fetch(API_BASE, {
         method: 'POST',
         // text/plain evita o "preflight" CORS que o Apps Script não trata bem
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'cancel', id: id, manageToken: token || '' })
+        body: JSON.stringify({ action: 'cancel', id: id, manageToken: token || '', room: room })
       });
       var data = await res.json();
       if(data && data.forbidden){
@@ -1132,7 +1132,7 @@
       del.setAttribute('aria-label','Cancelar reserva');
       del.textContent = '×';
       del.addEventListener('click', async function(){
-        var result = await deleteReservation(r.id, myToken);
+        var result = await deleteReservation(r.id, myToken, currentRoom);
         if(result.ok){
           forgetMyToken(r.id);
           onCancelled();
