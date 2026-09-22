@@ -15,6 +15,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
 <meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* ---------- Tema claro (padrão) — paleta EMBRAPII Unidade Bioforest ---------- */
@@ -86,6 +87,36 @@
   }
   .wrap{max-width:960px;margin:0 auto;}
 
+  .sync-row{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    margin-bottom:14px;
+  }
+  .sync-status{
+    font-size:12px;
+    color:var(--text-faint);
+  }
+  .sync-btn{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    width:30px;height:30px;
+    border-radius:7px;
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    touch-action:manipulation;
+  }
+  .sync-btn:hover{border-color:var(--brand-dim);color:var(--brand);}
+  .sync-btn:disabled{cursor:default;opacity:0.6;}
+  .sync-btn .icon{display:inline-block;transition:transform 0.5s ease;}
+  .sync-btn.spinning .icon{animation:sync-spin 0.7s linear infinite;}
+  @keyframes sync-spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+
   .room-bar{
     display:flex;
     align-items:center;
@@ -150,9 +181,6 @@
     color:var(--teal);
     text-transform:uppercase;
     margin:0 0 4px;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
   }
   .room-name{
     font-family:'Space Grotesk',sans-serif;
@@ -161,9 +189,7 @@
     margin:0;
     letter-spacing:-0.3px;
     color:var(--brand-strong);
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
+    line-height:1.15;
   }
   .clock{
     font-family:'IBM Plex Mono',monospace;
@@ -427,7 +453,6 @@
     font-weight:600;
     color:var(--brand-strong);
     margin:0;
-    text-transform:capitalize;
     text-align:center;
     flex:1;
   }
@@ -473,6 +498,10 @@
   }
   .day-cell:active{
     transform:scale(0.97);
+  }
+  .day-cell:focus-visible{
+    outline:2px solid var(--brand);
+    outline-offset:2px;
   }
   .day-cell.empty{
     visibility:hidden;
@@ -522,7 +551,6 @@
     font-size:12px;
     font-weight:600;
     color:var(--text-dim);
-    text-transform:capitalize;
     margin:16px 0 6px;
     padding-bottom:4px;
     border-bottom:1px solid var(--line);
@@ -606,9 +634,11 @@
 
   @media (max-width:520px){
     form{grid-template-columns:1fr;}
-    .clock{font-size:19px;}
-    .room-name{font-size:20px;max-width:52vw;}
-    .room-id{max-width:52vw;}
+    header.board{flex-direction:column;align-items:flex-start;gap:10px;}
+    .brand-row{width:100%;}
+    .clock{text-align:left;align-self:flex-start;font-size:19px;}
+    .clock .date{margin-top:0;}
+    .room-name{font-size:20px;}
     .brand-row img{height:32px;}
     .submit-row{flex-direction:column;align-items:stretch;}
     .submit-row button.primary{width:100%;}
@@ -653,11 +683,6 @@
 <body>
 <div class="wrap">
 
-  <div class="room-bar">
-    <label for="room-select">Sala</label>
-    <select id="room-select" aria-label="Selecionar sala"></select>
-  </div>
-
   <header class="board">
     <div class="brand-row">
       <img src="assets/logo.png" alt="EMBRAPII Unidade Bioforest - UFOPA">
@@ -672,9 +697,21 @@
     </div>
   </header>
 
+  <div class="room-bar">
+    <label for="room-select">Sala</label>
+    <select id="room-select" aria-label="Selecionar sala"></select>
+  </div>
+
   <div class="view-switch">
     <button class="view-btn active" data-view="day">Dia</button>
     <button class="view-btn" data-view="month">Mês</button>
+  </div>
+
+  <div class="sync-row">
+    <span class="sync-status" id="sync-status">Carregando…</span>
+    <button type="button" class="sync-btn" id="refresh-btn" aria-label="Atualizar agora">
+      <span class="icon">⟳</span>
+    </button>
   </div>
 
   <div id="day-view">
@@ -766,7 +803,7 @@
         </div>
         <div class="submit-row">
           <button type="submit" class="primary" id="submit-btn">Reservar horário</button>
-          <span class="msg" id="form-msg"></span>
+          <span class="msg" id="form-msg" role="status" aria-live="polite"></span>
         </div>
       </form>
     </div>
@@ -796,6 +833,11 @@
 <script>
 (function(){
   var OPEN_HOUR = 8, CLOSE_HOUR = 19;
+  var TOTAL_OPEN_MINUTES = (CLOSE_HOUR - OPEN_HOUR) * 60;
+  // A partir de qual fração do dia ocupada o dia é marcado como "Cheio"
+  // (vermelho) no calendário mensal, em vez de "Parcial" (laranja).
+  // Ex.: 0.5 = a partir de metade do horário de funcionamento reservado.
+  var FULL_DAY_THRESHOLD = 0.5;
 
   // Salas disponíveis. Precisa bater com a lista ROOM_NAMES do Code.gs —
   // se adicionar uma sala aqui, adicione lá também (e vice-versa).
@@ -808,7 +850,7 @@
   // Cole aqui a URL do seu Web App do Google Apps Script
   // (Implantar → Nova implantação → Aplicativo da Web → copiar a URL gerada).
   // Precisa terminar em /exec
-  var API_BASE = 'https://script.google.com/macros/s/AKfycby5jXJY_3F2gFT-lHqzZLubRdl_IbLPVYKYRtpNNRvArD-7Eu7sqUKvA3ZKj3bVcr79/exec';
+  var API_BASE = 'https://script.google.com/macros/s/AKfycbx-WZ7Unxlbd7_-vQEZ1YCV_HAhN4Ne8jrEEc8kv6Dgvz45HTUIsDnmiM3iWu9vTWwAYQ/exec';
 
   var TOKENS_KEY = 'sala-reuniao:my-tokens'; // guarda localmente {reservationId: manageToken}
 
@@ -826,6 +868,9 @@
 
   var monthCalendar = document.getElementById('month-calendar');
   var monthTitle = document.getElementById('month-title');
+
+  var syncStatusEl = document.getElementById('sync-status');
+  var refreshBtn = document.getElementById('refresh-btn');
 
   var modalOverlay = document.getElementById('modal-overlay');
   var modalBox = document.getElementById('modal');
@@ -866,9 +911,43 @@
     var parts = t.split(':');
     return parseInt(parts[0],10)*60 + parseInt(parts[1],10);
   }
+  // Soma as horas efetivamente reservadas no dia. Como o backend já impede
+  // reservas sobrepostas na mesma sala, basta somar a duração de cada uma
+  // (sem precisar mesclar intervalos).
+  function occupiedMinutes_(dayReservations){
+    var total = 0;
+    (dayReservations || []).forEach(function(r){
+      total += parseTimeToMinutes(r.end) - parseTimeToMinutes(r.start);
+    });
+    return total;
+  }
+  // Texto curto para caber na célula do calendário: "2h", "1,5h" etc.
+  function formatOccupiedLabel_(minutes){
+    var hours = minutes / 60;
+    var rounded = Math.round(hours * 10) / 10;
+    var isWhole = Math.abs(rounded - Math.round(rounded)) < 0.001;
+    return (isWhole ? String(Math.round(rounded)) : rounded.toFixed(1).replace('.', ',')) + 'h';
+  }
   function formatDateHuman(dateStr){
     var d = new Date(dateStr+'T00:00:00');
     return d.toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+  }
+  // Mostra quando os dados na tela foram buscados pela última vez — como a
+  // agenda é compartilhada, isso deixa claro que "Livre" significa "livre
+  // na última verificação", não necessariamente neste segundo exato.
+  function updateSyncStatus_(text){
+    if(syncStatusEl) syncStatusEl.textContent = text;
+  }
+  function markSynced_(){
+    var now = new Date();
+    updateSyncStatus_('Atualizado às ' + pad(now.getHours()) + ':' + pad(now.getMinutes()));
+  }
+  // Deixa maiúscula só a PRIMEIRA letra da string — diferente do CSS
+  // text-transform:capitalize, que deixaria "de" e "feira" maiúsculos
+  // também (ex.: "Terça-Feira, 22 De Setembro De 2026"). Usar só onde a
+  // data aparece sozinha como título (nunca no meio de uma frase).
+  function capitalizeFirst_(s){
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   }
 
   function openModal(opts){
@@ -971,13 +1050,13 @@
     }
   }
 
-  async function deleteReservation(id, token){
+  async function deleteReservation(id, token, room){
     try{
       var res = await fetch(API_BASE, {
         method: 'POST',
         // text/plain evita o "preflight" CORS que o Apps Script não trata bem
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'cancel', id: id, manageToken: token || '' })
+        body: JSON.stringify({ action: 'cancel', id: id, manageToken: token || '', room: room })
       });
       var data = await res.json();
       if(data && data.forbidden){
@@ -1053,7 +1132,7 @@
       del.setAttribute('aria-label','Cancelar reserva');
       del.textContent = '×';
       del.addEventListener('click', async function(){
-        var result = await deleteReservation(r.id, myToken);
+        var result = await deleteReservation(r.id, myToken, currentRoom);
         if(result.ok){
           forgetMyToken(r.id);
           onCancelled();
@@ -1126,7 +1205,7 @@
 
       var header = document.createElement('div');
       header.className = 'month-list-day-header';
-      header.textContent = formatDateHuman(dateStr);
+      header.textContent = capitalizeFirst_(formatDateHuman(dateStr));
       listEl.appendChild(header);
 
       dayReservations.forEach(function(r){
@@ -1142,6 +1221,7 @@
     var reservations = await loadReservations(currentDate);
     renderTimeline(reservations);
     renderList(reservations, currentDate);
+    markSynced_();
   }
 
   dateInput.addEventListener('change', refresh);
@@ -1182,14 +1262,19 @@
     btn.addEventListener('click', function(){ setView(btn.dataset.view); });
   });
 
-  async function renderMonth(){
+  // silent=true (usado pelo auto-atualizar): não mostra "Carregando..."
+  // por cima do calendário, para não piscar a tela a cada atualização em
+  // segundo plano — o grid antigo fica visível até o novo estar pronto.
+  async function renderMonth(silent){
     if(API_BASE.indexOf('COLE_AQUI') !== -1) return;
 
     var year = currentMonth.getFullYear();
     var month = currentMonth.getMonth(); // 0-based
 
-    monthTitle.textContent = currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    monthCalendar.innerHTML = '<div class="empty">Carregando...</div>';
+    monthTitle.textContent = capitalizeFirst_(currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }));
+    if(!silent){
+      monthCalendar.innerHTML = '<div class="empty">Carregando...</div>';
+    }
 
     // UMA única requisição para o mês inteiro, em vez de uma por dia.
     var yearMonthStr = year + '-' + pad(month + 1);
@@ -1222,21 +1307,40 @@
 
       var statusClass = 'free';
       var statusText = 'Livre';
-      if(dayReservations.length > 0){
-        statusClass = dayReservations.length <= 3 ? 'medium' : 'full';
-        statusText = String(dayReservations.length); // texto curto: cabe em células pequenas no celular
+      var occMinutes = occupiedMinutes_(dayReservations);
+      if(occMinutes > 0){
+        var ratio = occMinutes / TOTAL_OPEN_MINUTES;
+        statusClass = ratio < FULL_DAY_THRESHOLD ? 'medium' : 'full';
+        statusText = formatOccupiedLabel_(occMinutes); // ex.: "3h" — horas já reservadas no dia
       }
       var status = document.createElement('div');
       status.className = 'booking-status ' + statusClass;
       status.textContent = statusText;
       cell.appendChild(status);
 
-      cell.addEventListener('click', function(clickedDate){
-        return function(){
+      // Acessível por teclado: role de botão, foco navegável (tabindex) e
+      // ativação com Enter/Espaço, além do clique — sem isso, quem navega
+      // só com teclado não conseguia escolher um dia no calendário.
+      cell.setAttribute('role', 'button');
+      cell.setAttribute('tabindex', '0');
+      var occupancyLabel = occMinutes > 0
+        ? (formatOccupiedLabel_(occMinutes) + ' reservadas de 11 horas')
+        : 'livre';
+      cell.setAttribute('aria-label', capitalizeFirst_(formatDateHuman(dateStr)) + ', ' + occupancyLabel);
+
+      (function(clickedDate){
+        function selectThisDay(){
           dateInput.value = clickedDate;
           setView('day');
-        };
-      }(dateStr));
+        }
+        cell.addEventListener('click', selectThisDay);
+        cell.addEventListener('keydown', function(e){
+          if(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar'){
+            e.preventDefault();
+            selectThisDay();
+          }
+        });
+      })(dateStr);
 
       monthCalendar.appendChild(cell);
     }
@@ -1244,6 +1348,7 @@
     // Lista do rodapé passa a mostrar as reservas do mês inteiro,
     // reaproveitando os dados já buscados acima (sem requisição extra).
     renderMonthList(monthData, year, month);
+    markSynced_();
   }
 
   document.getElementById('prev-month').addEventListener('click', function(){
@@ -1346,6 +1451,60 @@
       });
     }finally{
       submitBtn.disabled = false;
+    }
+  });
+
+  // ---------- Atualização automática ----------
+  // A agenda é compartilhada: sem isso, quem deixa a página aberta pode
+  // tentar reservar um horário que outra pessoa já ocupou há pouco.
+  var AUTO_REFRESH_MS = 45000; // 45s — equilíbrio entre atualidade e cota do Apps Script
+  var isSyncing = false;
+
+  function refreshCurrentView_(silent){
+    var monthVisible = document.getElementById('month-view').style.display !== 'none';
+    return monthVisible ? renderMonth(silent) : refresh();
+  }
+
+  async function syncNow_(opts){
+    opts = opts || {};
+    if(isSyncing) return;
+    isSyncing = true;
+    if(opts.showSpinner && refreshBtn){
+      refreshBtn.classList.add('spinning');
+      refreshBtn.disabled = true;
+    }
+    try{
+      await refreshCurrentView_(!opts.showSpinner);
+    } catch(e){
+      updateSyncStatus_('Não foi possível atualizar agora');
+    } finally {
+      isSyncing = false;
+      if(opts.showSpinner && refreshBtn){
+        refreshBtn.classList.remove('spinning');
+        refreshBtn.disabled = false;
+      }
+    }
+  }
+
+  if(refreshBtn){
+    refreshBtn.addEventListener('click', function(){
+      syncNow_({ showSpinner: true });
+    });
+  }
+
+  var autoRefreshTimer = setInterval(function(){
+    // Não gasta requisição/cota enquanto a aba não está visível.
+    if(!document.hidden){
+      syncNow_({ showSpinner: false });
+    }
+  }, AUTO_REFRESH_MS);
+
+  // Ao voltar para a aba (ex.: usuário trocou de app e voltou), atualiza
+  // na hora em vez de esperar o próximo intervalo — os dados podem já
+  // estar bem desatualizados nesse ponto.
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden){
+      syncNow_({ showSpinner: false });
     }
   });
 
