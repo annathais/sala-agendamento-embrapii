@@ -124,25 +124,87 @@
     color:var(--text-faint);
     flex-shrink:0;
   }
-  .room-bar select{
+  /* Menu de sala customizado — substitui o <select> nativo. Um select
+     comum abre uma lista desenhada pelo NAVEGADOR (não pela página), com
+     largura própria que ignora nosso CSS responsivo. Construindo o menu
+     nós mesmos, a lista de opções é só mais um elemento da página e
+     acompanha a largura do botão em qualquer tamanho de tela. */
+  .room-dropdown{
+    position:relative;
     flex:1;
+    min-width:0;
+  }
+  .room-trigger{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
     background:var(--panel);
     border:1px solid var(--line);
     color:var(--brand-strong);
-    padding:12px 40px 12px 14px;
+    padding:12px 14px;
     border-radius:8px;
     font-family:'Space Grotesk',sans-serif;
     font-weight:600;
     font-size:15px;
     cursor:pointer;
     min-height:46px;
-    appearance:none;-webkit-appearance:none;-moz-appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238E9BA8' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;
-    background-position:right 14px center;
     touch-action:manipulation;
+    text-align:left;
   }
-  .room-bar select:focus{outline:none;border-color:var(--brand);}
+  .room-trigger:focus-visible{outline:none;border-color:var(--brand);}
+  .room-trigger .label{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    min-width:0;
+  }
+  .room-trigger .chevron{
+    flex-shrink:0;
+    color:var(--text-faint);
+    transition:transform 0.15s ease;
+    font-size:11px;
+  }
+  .room-dropdown.open .room-trigger .chevron{transform:rotate(180deg);}
+  .room-dropdown.open .room-trigger{border-color:var(--brand);}
+  .room-listbox{
+    position:absolute;
+    left:0;
+    right:0;
+    top:calc(100% + 6px);
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:6px;
+    margin:0;
+    list-style:none;
+    max-height:260px;
+    overflow-y:auto;
+    box-shadow:0 12px 28px rgba(0,0,0,0.35);
+    z-index:60;
+  }
+  .room-listbox[hidden]{display:none;}
+  .room-option{
+    padding:11px 12px;
+    border-radius:7px;
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:15px;
+    color:var(--text);
+    cursor:pointer;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .room-option:hover,
+  .room-option.is-focused{
+    background:var(--panel-2);
+  }
+  .room-option[aria-selected="true"]{
+    color:var(--brand-strong);
+    background:var(--brand-soft, rgba(90,169,230,0.14));
+  }
 
   header.board{
     display:flex;
@@ -702,8 +764,15 @@
   </header>
 
   <div class="room-bar">
-    <label for="room-select">Sala</label>
-    <select id="room-select" aria-label="Selecionar sala"></select>
+    <label id="room-label">Sala</label>
+    <div class="room-dropdown" id="room-dropdown">
+      <button type="button" class="room-trigger" id="room-trigger"
+        aria-haspopup="listbox" aria-expanded="false" aria-controls="room-listbox" aria-labelledby="room-label room-trigger-label">
+        <span class="label" id="room-trigger-label">Carregando…</span>
+        <span class="chevron" aria-hidden="true">▾</span>
+      </button>
+      <ul class="room-listbox" id="room-listbox" role="listbox" aria-labelledby="room-label" tabindex="-1" hidden></ul>
+    </div>
   </div>
 
   <div class="view-switch">
@@ -867,7 +936,10 @@
   var msgEl = document.getElementById('form-msg');
   var submitBtn = document.getElementById('submit-btn');
 
-  var roomSelect = document.getElementById('room-select');
+  var roomDropdown = document.getElementById('room-dropdown');
+  var roomTrigger = document.getElementById('room-trigger');
+  var roomTriggerLabel = document.getElementById('room-trigger-label');
+  var roomListbox = document.getElementById('room-listbox');
   var roomTitleEl = document.getElementById('room-title');
   var roomSubtitleEl = document.getElementById('room-subtitle');
 
@@ -989,33 +1061,119 @@
     return ROOMS[0];
   }
 
-  ROOMS.forEach(function(r){
-    var opt = document.createElement('option');
-    opt.value = r.name;
-    opt.textContent = r.name;
-    roomSelect.appendChild(opt);
+  var roomOptionEls = [];
+  var roomFocusedIndex = -1;
+
+  function renderRoomOptions_(){
+    roomListbox.innerHTML = '';
+    roomOptionEls = [];
+    ROOMS.forEach(function(r, idx){
+      var li = document.createElement('li');
+      li.id = 'room-opt-' + idx;
+      li.className = 'room-option';
+      li.setAttribute('role', 'option');
+      li.setAttribute('aria-selected', r.name === currentRoom ? 'true' : 'false');
+      li.textContent = r.name;
+      li.addEventListener('click', function(){ selectRoom_(r.name); });
+      li.addEventListener('mouseenter', function(){ setRoomFocusedIndex_(idx); });
+      roomListbox.appendChild(li);
+      roomOptionEls.push(li);
+    });
+  }
+
+  function setRoomFocusedIndex_(idx){
+    if(roomFocusedIndex >= 0 && roomOptionEls[roomFocusedIndex]){
+      roomOptionEls[roomFocusedIndex].classList.remove('is-focused');
+    }
+    roomFocusedIndex = idx;
+    if(roomOptionEls[roomFocusedIndex]){
+      roomOptionEls[roomFocusedIndex].classList.add('is-focused');
+      roomListbox.setAttribute('aria-activedescendant', roomOptionEls[roomFocusedIndex].id);
+    }
+  }
+
+  function onRoomDocClick_(e){
+    if(!roomDropdown.contains(e.target)) closeRoomDropdown_(false);
+  }
+
+  function openRoomDropdown_(){
+    if(roomDropdown.classList.contains('open')) return;
+    roomDropdown.classList.add('open');
+    roomListbox.hidden = false;
+    roomTrigger.setAttribute('aria-expanded', 'true');
+    var selIdx = ROOMS.findIndex(function(r){ return r.name === currentRoom; });
+    setRoomFocusedIndex_(selIdx >= 0 ? selIdx : 0);
+    roomListbox.focus();
+    document.addEventListener('click', onRoomDocClick_, true);
+  }
+
+  function closeRoomDropdown_(returnFocusToTrigger){
+    if(!roomDropdown.classList.contains('open')) return;
+    roomDropdown.classList.remove('open');
+    roomListbox.hidden = true;
+    roomTrigger.setAttribute('aria-expanded', 'false');
+    if(roomFocusedIndex >= 0 && roomOptionEls[roomFocusedIndex]){
+      roomOptionEls[roomFocusedIndex].classList.remove('is-focused');
+    }
+    roomFocusedIndex = -1;
+    document.removeEventListener('click', onRoomDocClick_, true);
+    if(returnFocusToTrigger) roomTrigger.focus();
+  }
+
+  roomTrigger.addEventListener('click', function(){
+    if(roomDropdown.classList.contains('open')) closeRoomDropdown_(true);
+    else openRoomDropdown_();
   });
+
+  roomTrigger.addEventListener('keydown', function(e){
+    // Abre o menu com seta pra baixo/cima mesmo antes de clicar nele.
+    if(e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      openRoomDropdown_();
+    }
+  });
+
+  roomListbox.addEventListener('keydown', function(e){
+    if(e.key === 'ArrowDown'){
+      e.preventDefault();
+      setRoomFocusedIndex_(Math.min(roomFocusedIndex + 1, ROOMS.length - 1));
+    } else if(e.key === 'ArrowUp'){
+      e.preventDefault();
+      setRoomFocusedIndex_(Math.max(roomFocusedIndex - 1, 0));
+    } else if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      if(roomFocusedIndex >= 0) selectRoom_(ROOMS[roomFocusedIndex].name);
+    } else if(e.key === 'Escape'){
+      e.preventDefault();
+      closeRoomDropdown_(true);
+    } else if(e.key === 'Tab'){
+      closeRoomDropdown_(false);
+    }
+  });
+
+  function selectRoom_(name){
+    currentRoom = name;
+    saveRoom_(currentRoom);
+    updateRoomHeader_();
+    renderRoomOptions_();
+    closeRoomDropdown_(true);
+    msgEl.textContent = '';
+    msgEl.className = 'msg';
+    var monthVisible = document.getElementById('month-view').style.display !== 'none';
+    if(monthVisible){ renderMonth(); } else { refresh(); }
+  }
 
   var savedRoom = getSavedRoom_();
   var currentRoom = (savedRoom && ROOMS.some(function(r){ return r.name === savedRoom; })) ? savedRoom : ROOMS[0].name;
-  roomSelect.value = currentRoom;
 
   function updateRoomHeader_(){
     var r = findRoom_(currentRoom);
     roomTitleEl.textContent = r.name;
     roomSubtitleEl.textContent = r.subtitle;
+    roomTriggerLabel.textContent = r.name;
   }
+  renderRoomOptions_();
   updateRoomHeader_();
-
-  roomSelect.addEventListener('change', function(){
-    currentRoom = roomSelect.value;
-    saveRoom_(currentRoom);
-    updateRoomHeader_();
-    msgEl.textContent = '';
-    msgEl.className = 'msg';
-    var monthVisible = document.getElementById('month-view').style.display !== 'none';
-    if(monthVisible){ renderMonth(); } else { refresh(); }
-  });
 
   if(API_BASE.indexOf('COLE_AQUI') !== -1){
     listEl.innerHTML = '<div class="empty">⚠️ Configure a URL do seu Apps Script na constante API_BASE, no topo do &lt;script&gt; deste arquivo.</div>';
