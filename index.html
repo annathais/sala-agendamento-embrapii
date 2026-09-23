@@ -87,13 +87,6 @@
   }
   .wrap{max-width:960px;margin:0 auto;}
 
-  .sync-row{
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;
-    gap:8px;
-    margin-bottom:14px;
-  }
   .sync-status{
     font-size:12px;
     color:var(--text-faint);
@@ -212,9 +205,20 @@
   /* ---------- Alternância Dia / Mês ---------- */
   .view-switch{
     display:flex;
-    justify-content:flex-end;
+    justify-content:space-between;
+    align-items:center;
     gap:8px;
     margin-bottom:18px;
+    flex-wrap:wrap;
+  }
+  .sync-group{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .view-buttons{
+    display:flex;
+    gap:8px;
   }
   .view-btn{
     padding:10px 18px;
@@ -703,15 +707,16 @@
   </div>
 
   <div class="view-switch">
-    <button class="view-btn active" data-view="day">Dia</button>
-    <button class="view-btn" data-view="month">Mês</button>
-  </div>
-
-  <div class="sync-row">
-    <span class="sync-status" id="sync-status">Carregando…</span>
-    <button type="button" class="sync-btn" id="refresh-btn" aria-label="Atualizar agora">
-      <span class="icon">⟳</span>
-    </button>
+    <div class="sync-group">
+      <button type="button" class="sync-btn" id="refresh-btn" aria-label="Atualizar agora">
+        <span class="icon">⟳</span>
+      </button>
+      <span class="sync-status" id="sync-status">Carregando…</span>
+    </div>
+    <div class="view-buttons">
+      <button class="view-btn active" data-view="day">Dia</button>
+      <button class="view-btn" data-view="month">Mês</button>
+    </div>
   </div>
 
   <div id="day-view">
